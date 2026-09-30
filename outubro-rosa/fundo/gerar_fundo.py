@@ -1,92 +1,121 @@
-"""Gera o fundo Outubro Rosa: rosa claro + nuvem circular de ícones de saúde em traço branco.
+"""Gera o fundo Outubro Rosa: rosa claro + colagem circular de pictogramas de saúde.
+
+Estilo da referência: pictogramas profissionais, maioria sólidos e alguns vazados,
+sobrepostos em camadas, em branco com transparência baixa, formando um grande círculo.
+Ícones: Phosphor (MIT) e Tabler (MIT), em ./icones.
 
 Saídas (SVG vetorial, editável):
-  icones_transparente.svg   só os ícones, fundo transparente (1080x1080)
-  fundo_feed_1080x1080.svg  rosa + ícones
+  icones_transparente.svg   só a colagem, fundo transparente (1200x1200)
+  fundo_feed_1080x1080.svg  rosa + colagem
   fundo_feed_1080x1350.svg
   fundo_story_1080x1920.svg
 Os PNGs são exportados por render_png.js.
 """
 import math
 import random
+import re
 from pathlib import Path
 
-OUT = Path(__file__).parent
-random.seed(10)
+HERE = Path(__file__).parent
+ICONS_DIR = HERE / "icones"
+random.seed(7)
 
 # Paleta: um tom acima (mais claro) do rosa da referência
-BG_EDGE = "#F4A3BF"
-BG_CENTER = "#F8BCD0"
+BG_TOP = "#F7B6CC"
+BG_BOTTOM = "#F29BB9"
 ICON = "#FFFFFF"
-ICON_OPACITY = 0.5
-STROKE = 5  # em unidades do ícone (caixa 100x100)
+ICON_OPACITY = 0.26  # por ícone; sobreposições somam, como na referência
 
-# Ícones em traço, desenhados numa caixa 100x100 centrada em (50,50)
-ICONS = {
-    "laco": '<path d="M32 90 L56 46 C66 28 62 10 50 10 C38 10 34 28 44 46 L68 90"/>',
-    "cruz": '<path d="M38 12 H62 V38 H88 V62 H62 V88 H38 V62 H12 V38 H38 Z"/>',
-    "coracao": '<path d="M50 86 C20 64 10 48 10 34 C10 20 21 12 32 12 C41 12 47 18 50 25 C53 18 59 12 68 12 C79 12 90 20 90 34 C90 48 80 64 50 86 Z"/>',
-    "coracao_pulso": '<path d="M50 86 C20 64 10 48 10 34 C10 20 21 12 32 12 C41 12 47 18 50 25 C53 18 59 12 68 12 C79 12 90 20 90 34 C90 48 80 64 50 86 Z"/>'
-                     '<path d="M18 48 H36 L42 36 L50 60 L57 42 L62 48 H82"/>',
-    "capsula": '<g transform="rotate(-40 50 50)"><rect x="34" y="10" width="32" height="80" rx="16"/><path d="M34 50 H66"/></g>',
-    "comprimido": '<circle cx="50" cy="50" r="34"/><path d="M26 74 L74 26"/>',
-    "mulher": '<circle cx="50" cy="20" r="11"/><path d="M50 34 L28 76 H72 Z"/><path d="M42 76 V94 M58 76 V94"/>',
-    "feminino": '<circle cx="50" cy="36" r="24"/><path d="M50 60 V94 M36 80 H64"/>',
-    "flor": ''.join(
-        f'<circle cx="{50 + 20 * math.cos(math.radians(a)):.1f}" cy="{50 + 20 * math.sin(math.radians(a)):.1f}" r="14"/>'
-        for a in range(-90, 270, 72)) + '<circle cx="50" cy="50" r="7"/>',
-    "estetoscopio": '<path d="M26 10 V40 C26 56 36 64 46 64 C56 64 66 56 66 40 V10"/>'
-                    '<path d="M46 64 V76 C46 88 60 92 70 88 C78 84 80 76 80 70"/><circle cx="80" cy="62" r="8"/>',
-    "maca": '<path d="M50 30 C40 22 20 22 16 42 C12 62 28 90 42 88 C46 87 48 85 50 85 C52 85 54 87 58 88 C72 90 88 62 84 42 C80 22 60 22 50 30 Z"/>'
-            '<path d="M50 30 C50 22 52 14 58 10"/><path d="M54 20 C62 12 72 14 74 16 C70 22 62 24 54 20 Z"/>',
-    "halter": '<path d="M28 50 H72"/><rect x="14" y="30" width="14" height="40" rx="4"/><rect x="72" y="30" width="14" height="40" rx="4"/>'
-              '<path d="M8 40 V60 M92 40 V60"/>',
-    "garrafa": '<rect x="30" y="28" width="40" height="64" rx="10"/><path d="M40 28 V16 H60 V28"/><path d="M36 10 H64"/><path d="M30 50 H70"/>',
-    "folha": '<path d="M16 84 C16 40 44 16 86 14 C86 58 60 84 16 84 Z"/><path d="M16 84 L60 40"/>',
-    "brilho": '<path d="M50 8 C54 36 64 46 92 50 C64 54 54 64 50 92 C46 64 36 54 8 50 C36 46 46 36 50 8 Z"/>',
-    "frasco": '<rect x="26" y="30" width="48" height="60" rx="8"/><rect x="22" y="12" width="56" height="18" rx="4"/><path d="M40 60 H60 M50 50 V70"/>',
-    "prancheta": '<rect x="18" y="14" width="64" height="80" rx="8"/><rect x="36" y="8" width="28" height="14" rx="4"/><path d="M32 56 L44 68 L68 42"/>',
-    "calendario": '<rect x="12" y="20" width="76" height="70" rx="8"/><path d="M12 40 H88 M32 10 V28 M68 10 V28"/>'
-                  '<path d="M40 64 L48 72 L62 54"/>',
+# Phosphor: nome -> peso relativo na colagem
+PHOSPHOR = {
+    "heart": 5, "flower": 5, "first-aid": 4, "plus": 3, "pill": 4, "drop": 3, "asterisk": 4,
+    "flower-lotus": 2, "flower-tulip": 2, "sparkle": 2, "flask": 2, "stethoscope": 2,
+    "hand-heart": 2, "gender-female": 2, "calendar-heart": 1, "heartbeat": 2, "butterfly": 2,
+    "leaf": 2, "first-aid-kit": 2, "barbell": 1, "person-simple-tai-chi": 1, "shield-plus": 1,
+    "drop-half": 1,
 }
+SOLID_SHARE = 0.62  # parcela de ícones sólidos; o resto vazado
+# a versão sólida destes vira um bloco quadrado ou circular, então entram só vazados
+OUTLINE_ONLY = {"plus", "asterisk", "gender-female", "calendar-heart", "shield-plus"}
 
 
-def icon_group(name, x, y, size, rot):
-    s = size / 100
-    return (f'<g transform="translate({x:.1f} {y:.1f}) rotate({rot:.1f}) scale({s:.3f}) translate(-50 -50)" '
-            f'stroke-width="{STROKE}">{ICONS[name]}</g>')
+def inner(svg_text):
+    body = re.search(r"<svg[^>]*>(.*)</svg>", svg_text, re.S).group(1)
+    return re.sub(r'<path stroke="none" d="M0 0h24v24H0z" fill="none"\s*/>', "", body).strip()
 
 
-def pack_cluster(radius, count_target=160):
-    """Espalha ícones dentro de um círculo sem sobreposição (amostragem por rejeição)."""
-    names = list(ICONS)
+def load_library():
+    lib = []  # (nome, sólido, markup normalizado em caixa 0..100, peso)
+    for name, w in PHOSPHOR.items():
+        for solid in ((False,) if name in OUTLINE_ONLY else (True, False)):
+            f = ICONS_DIR / "phosphor" / (f"{name}-fill.svg" if solid else f"{name}.svg")
+            g = f'<g transform="scale({100 / 256})" fill="{ICON}">{inner(f.read_text())}</g>'
+            lib.append((name, solid, g, w))
+    woman = inner((ICONS_DIR / "tabler" / "woman-filled.svg").read_text())
+    lib.append(("mulher", True, f'<g transform="scale({100 / 24})" fill="{ICON}">{woman}</g>', 8))
+    ribbon = re.search(r'd="(M7 21[^"]+)"', (ICONS_DIR / "tabler" / "ribbon-health.svg").read_text()).group(1)
+    # laço sólido: faixa larga. O vazado usa a mesma faixa recortada por uma fina (máscara em icon_group)
+    rib = (f'<g transform="scale({100 / 24})"><path d="{ribbon}" fill="none" stroke="{ICON}" '
+           f'stroke-width="3.6" stroke-linejoin="round"/></g>')
+    lib.append(("laco", True, rib, 6))
+    lib.append(("laco", False, rib, 3))
+    return lib, ribbon
+
+
+LIB, RIBBON_D = load_library()
+
+
+def pick():
+    solid = random.random() < SOLID_SHARE
+    pool = [item for item in LIB if item[1] == solid]
+    r = random.uniform(0, sum(item[3] for item in pool))
+    for item in pool:
+        r -= item[3]
+        if r <= 0:
+            return item
+    return pool[-1]
+
+
+def pack(radius):
+    """Colagem: grandes primeiro, depois médios e pequenos preenchendo, com sobreposição leve."""
     placed = []
-    attempts = 0
-    order = []
-    while len(placed) < count_target and attempts < 300000:
-        attempts += 1
-        size = random.choice([72, 84, 96, 110])
-        ang = random.uniform(0, 2 * math.pi)
-        r = radius * math.sqrt(random.random())
-        x, y = r * math.cos(ang), r * math.sin(ang)
-        if r + size * 0.45 > radius:
-            continue
-        if any(math.hypot(x - px, y - py) < (size + ps) * 0.5 + 4 for px, py, ps, _, _ in placed):
-            continue
-        if not order:
-            order = random.sample(names + ["laco", "laco", "coracao"], len(names) + 3)
-        name = order.pop()
-        placed.append((x, y, size, name, random.uniform(-25, 25)))
+    tiers = [(170, 210, 8), (115, 150, 30), (80, 105, 70), (54, 72, 120)]
+    for lo, hi, n in tiers:
+        got = tries = 0
+        while got < n and tries < 40000:
+            tries += 1
+            size = random.uniform(lo, hi)
+            ang = random.uniform(0, 2 * math.pi)
+            r = radius * math.sqrt(random.random())
+            x, y = r * math.cos(ang), r * math.sin(ang)
+            if r + size * 0.35 > radius:
+                continue
+            if any(math.hypot(x - px, y - py) < (size + ps) * 0.36 for px, py, ps, *_ in placed):
+                continue
+            name, solid, g, _ = pick()
+            placed.append((x, y, size, name, solid, g, random.uniform(-28, 28)))
+            got += 1
+    random.shuffle(placed)  # camadas misturadas
     return placed
 
 
-CLUSTER = pack_cluster(radius=500)
+CLUSTER = pack(radius=560)
 
 
-def cluster_svg(cx, cy, scale=1.0):
-    items = "".join(icon_group(n, x, y, s, rot) for x, y, s, n, rot in CLUSTER)
-    return (f'<g id="icones" transform="translate({cx} {cy}) scale({scale})" fill="none" stroke="{ICON}" '
-            f'stroke-opacity="{ICON_OPACITY}" stroke-linecap="round" stroke-linejoin="round">{items}</g>')
+def icon_group(i, x, y, size, name, solid, g, rot):
+    tr = f'translate({x:.1f} {y:.1f}) rotate({rot:.1f}) scale({size / 100:.3f}) translate(-50 -50)'
+    if name == "laco" and not solid:
+        mask = (f'<mask id="m{i}" maskUnits="userSpaceOnUse" x="-20" y="-20" width="140" height="140">'
+                f'<rect x="-20" y="-20" width="140" height="140" fill="#fff"/>'
+                f'<g transform="scale({100 / 24})"><path d="{RIBBON_D}" fill="none" stroke="#000" '
+                f'stroke-width="1.9" stroke-linejoin="round"/></g></mask>')
+        g = f'{mask}<g mask="url(#m{i})">{g}</g>'
+    return f'<g opacity="{ICON_OPACITY}" transform="{tr}">{g}</g>'
+
+
+def cluster_svg(cx, cy, scale):
+    items = "".join(icon_group(i, *c) for i, c in enumerate(CLUSTER))
+    return f'<g id="colagem" transform="translate({cx} {cy}) scale({scale})">{items}</g>'
 
 
 def doc(w, h, body):
@@ -94,20 +123,18 @@ def doc(w, h, body):
             f'{body}</svg>\n')
 
 
-def background(w, h, cy):
-    return (f'<defs><radialGradient id="bg" cx="{w / 2}" cy="{cy}" r="{max(w, h) * 0.8}" gradientUnits="userSpaceOnUse">'
-            f'<stop offset="0" stop-color="{BG_CENTER}"/><stop offset="1" stop-color="{BG_EDGE}"/></radialGradient></defs>'
-            f'<rect width="{w}" height="{h}" fill="url(#bg)"/>')
+def background(w, h):
+    return (f'<defs><linearGradient id="bg" x1="0" y1="0" x2="{w}" y2="{h}" gradientUnits="userSpaceOnUse">'
+            f'<stop offset="0" stop-color="{BG_TOP}"/><stop offset="1" stop-color="{BG_BOTTOM}"/>'
+            f'</linearGradient></defs><rect width="{w}" height="{h}" fill="url(#bg)"/>')
 
 
 def main():
-    (OUT / "icones_transparente.svg").write_text(doc(1080, 1080, cluster_svg(540, 540, 1.0)))
-    for name, (w, h) in {"fundo_feed_1080x1080": (1080, 1080),
-                         "fundo_feed_1080x1350": (1080, 1350),
-                         "fundo_story_1080x1920": (1080, 1920)}.items():
-        cy = h / 2
-        scale = 1.0 if h <= 1350 else 1.12
-        (OUT / f"{name}.svg").write_text(doc(w, h, background(w, h, cy) + cluster_svg(w / 2, cy, scale)))
+    (HERE / "icones_transparente.svg").write_text(doc(1200, 1200, cluster_svg(600, 600, 0.98)))
+    for name, (w, h, scale) in {"fundo_feed_1080x1080": (1080, 1080, 0.98),
+                                "fundo_feed_1080x1350": (1080, 1350, 1.0),
+                                "fundo_story_1080x1920": (1080, 1920, 1.05)}.items():
+        (HERE / f"{name}.svg").write_text(doc(w, h, background(w, h) + cluster_svg(w / 2, h / 2, scale)))
     print(f"{len(CLUSTER)} ícones posicionados")
 
 
