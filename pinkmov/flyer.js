@@ -61,6 +61,19 @@ function heart(t) {
   return v;
 }
 function energy(t) { const f = af(t); return clamp(f.rms * 0.8 + f.bass * 0.4, 0, 1.3); }
+// floating "boat" sway after the landing: rigid rotation about the hidden base + vertical drift,
+// out of phase, 2 bars per cycle; scale breathing (±1 %) peaks every other beat
+const BEAT = 60 / AU.bpm, SWAY_P = 8 * BEAT;
+function sway(t) {
+  const env = eInOutSine(P(t, 9.741, 9.741 + 1.4));
+  const ph = TAU * (t - 9.741) / SWAY_P;
+  const rot = env * (1.5 * Math.PI / 180) * Math.sin(ph);
+  return {
+    rot, dy: env * 9 * Math.sin(ph + 1.9),
+    sc: 1 + env * 0.01 * Math.cos(TAU * (t - 9.741) / (2 * BEAT)),
+    headDx: rot * 520,                                      // horizontal travel of the head (for counter-parallax)
+  };
+}
 
 // ------------------------------------------------------------------ canvases
 const cv = document.getElementById("c");
@@ -75,7 +88,7 @@ const tmp2 = mk(W, H), t2x = tmp2.getContext("2d");
 // ------------------------------------------------------------------ assets
 const IMG = {};
 const SRC = {
-  paper: "assets/tex/paper.jpg", worn: "assets/tex/worn.png",
+  plate: "assets/bg_plate.jpg", paperFine: "assets/tex/paper_fine.jpg", worn: "assets/tex/worn.png",
   band: "assets/tex/stroke_band.png", pa: "assets/tex/stroke_pink_a.png",
   pb: "assets/tex/stroke_pink_b.png", pc: "assets/tex/stroke_pink_c.png",
   oa: "assets/tex/stroke_orange_a.png", ob: "assets/tex/stroke_orange_b.png",
@@ -83,7 +96,8 @@ const SRC = {
 };
 for (let i = 0; i < 8; i++) SRC["g" + i] = `assets/tex/grain_${i}.png`;
 const CDC_BOX = [98, 106, 744, 430];                      // transparent padding trimmed at draw time only
-const WOMAN = { s: 0.62, x: 75, y: 409 };                   // cutout scale/placement in the final comp
+const WOMAN = { s: 0.4712, x: 190.4, y: 511.9 };            // cutout scale/placement in the final comp
+const PIVOT = { x: 540, y: 1118 };                          // sway pivot: cutout base centre, hidden by the band
 
 let womanFX, womanRim, wornFull, grainPat = [];
 
@@ -171,14 +185,30 @@ function bloom(gain) {
   ctx.restore();
 }
 
-function background(k, glow) {
-  ctx.save();
-  cam(ctx, k, 0.3);
-  ctx.globalAlpha = 0.8;
-  ctx.drawImage(IMG.paper, (W - 1400) / 2, (H - 2400) / 2);
+function background(t, k, glow) {
+  // gym clean plate: slow push-in 1.00 -> 1.08 over the piece + a small share of the scene camera
+  // (slower than the front layers) + counter-sway to the woman
+  const sw = sway(t);
+  const open = eOutCubic(P(t, 0.0, 2.6));                   // focuses/brightens with the text rack focus
+  const s = lerp(1, 1.08, eInOutSine(t / DUR)) * Math.pow(k.s, 0.12);
+  const xf = c => {
+    c.translate(540 + k.ox * 0.25 - sw.headDx * 0.12, 960 + k.oy * 0.25 - sw.dy * 0.12);
+    c.scale(s, s);
+    c.translate(-620, -1102);
+  };
+  ctx.save(); xf(ctx);
+  if (open < 1) ctx.filter = `blur(${(9 * (1 - open)).toFixed(2)}px)`;
+  ctx.drawImage(IMG.plate, 0, 0);
+  ctx.filter = "none";
+  ctx.globalCompositeOperation = "soft-light";             // fine crumpled paper over the gym
+  ctx.globalAlpha = 0.13;
+  ctx.drawImage(IMG.paperFine, 0, 0);
   ctx.restore();
-  ctx.fillStyle = "rgba(4,2,5,0.38)";
-  ctx.fillRect(0, 0, W, H);
+  if (open < 1) { ctx.fillStyle = `rgba(3,1,4,${(0.4 * (1 - open)).toFixed(3)})`; ctx.fillRect(0, 0, W, H); }
+  // darker toward the bottom (copy legibility)
+  const bg = ctx.createLinearGradient(0, 1000, 0, H);
+  bg.addColorStop(0, "rgba(5,2,6,0)"); bg.addColorStop(0.5, "rgba(5,2,6,0.45)"); bg.addColorStop(1, "rgba(5,2,6,0.8)");
+  ctx.fillStyle = bg; ctx.fillRect(0, 1000, W, H - 1000);
   for (const g of glow) {
     if (g.a <= 0) continue;
     const gr = ctx.createRadialGradient(g.x, g.y, 0, g.x, g.y, g.r);
@@ -192,7 +222,7 @@ function background(k, glow) {
 function finish(t, frame) {
   // vignette
   const v = ctx.createRadialGradient(540, 900, 380, 540, 960, 1280);
-  v.addColorStop(0, "rgba(0,0,0,0)"); v.addColorStop(0.65, "rgba(0,0,0,0.28)"); v.addColorStop(1, "rgba(0,0,0,0.82)");
+  v.addColorStop(0, "rgba(0,0,0,0)"); v.addColorStop(0.65, "rgba(0,0,0,0.2)"); v.addColorStop(1, "rgba(0,0,0,0.72)");
   ctx.fillStyle = v; ctx.fillRect(0, 0, W, H);
   // fine grain (cycled tiles, deterministic offset)
   ctx.save();
@@ -338,7 +368,7 @@ function sceneA(t) {
 
 // ================================================================== CIRCLE state across B/C/D
 const CB = { x: 540, y: 900, r: 330 };
-const CD = { x: 540, y: 860, r: 265 };
+const CD = { x: 540, y: 852, r: 220 };
 function zoomB(t) {                                     // camera scale for scene B (push-in, then dive in)
   const push = lerp(1, 1.1, eInOutSine(P(t, T.groove, T.preA)));
   const z = P(t, T.preA, 6.45);
@@ -346,9 +376,11 @@ function zoomB(t) {                                     // camera scale for scen
 }
 function popB(t) { const p = P(t, T.groove, T.groove + 0.6); return { s: lerp(0.32, 1, eOutBack(p, 2.4)), b: 22 * (1 - eOutCubic(p)), a: eOutCubic(P(t, T.groove, T.groove + 0.18)) }; }
 function pullD(t) { return eOutExpo(P(t, T.impact, T.impact + 0.55)); }
-function camD(t) {                                       // final-comp camera: vertical parallax pan + loop drift
+// final-comp camera: vertical parallax pan (+ loop drift for the back layers only, so the
+// copy spacing and safe zones stay fixed while the woman sways)
+function camD(t, withLoop = true) {
   const p = eOutCubic(P(t, T.impact, 10.2));
-  const loop = P(t, T.drop, DUR);
+  const loop = withLoop ? P(t, T.drop, DUR) : 0;
   const land = pulseAt(t, [T.land], 10) * 0.012;
   return {
     s: 1 + 0.06 * (1 - p) + 0.014 * eInOutSine(loop) + land, cx: 540, cy: 900,
@@ -361,7 +393,8 @@ function circleD(t) {
   const pr = pullD(t);
   const r = lerp(1500, CD.r, pr) * breathe * Math.pow(k.s, 0.6);
   const y = lerp(960, CD.y, pr) + k.oy * 0.6;
-  return { x: CD.x + k.ox * 0.6, y, r };
+  const sw = sway(t);
+  return { x: CD.x + k.ox * 0.6 - sw.headDx * 0.3, y: y - sw.dy * 0.35, r };
 }
 
 // ================================================================== SCENE B — círculo + logo
@@ -449,8 +482,8 @@ function sceneC(t) {
     c.font = "600 40px Mont"; c.textAlign = "center"; c.fillStyle = "#fff";
     withBlur(c, 12 * (1 - ptx), cc => {
       cc.globalAlpha = alpha * ptx;
-      cc.fillText("Projeto feminino de", 540, 1257);
-      cc.fillText("emagrecimento e autocuidado", 540, 1306);
+      cc.fillText("Projeto Feminino de", 540, 1257);
+      cc.fillText("Emagrecimento e Autocuidado.", 540, 1306);
     });
   });
   ctx.restore();
@@ -461,10 +494,10 @@ function sceneC(t) {
 const D = {
   pm: { x: 58, y: 262, w: 262 },
   cdc: { x: 800, y: 268, w: 222 },
-  callY: 500,
-  band: { cy: 1240, w: 1280, rot: -0.035 },
-  titleY: 1240,
-  tagY: 1340, consY: 1480, capY: 1500, smallY: 1634,
+  callY: 513,                                   // 52 px: 864 px wide, accent top 50 px under the logos
+  band: { cy: 1118, w: 1180, rot: -0.035 },
+  titleY: 1118,
+  tagY: 1251, consY: 1412, capY: 1460, smallY: 1632,   // >= 40 px between blocks, all above y 1640
 };
 const D_BACK = [
   { img: "pa", t: T.impact, d: 0.32, a: [-180, 1520], b: [1260, 640], th: 1.25, al: 0.9 },
@@ -482,6 +515,7 @@ const D_FRONT = [
 function sceneD(t, frame) {
   if (t < T.impact) return;
   const k = camD(t);
+  const kf = camD(t, false);
   const ci = circleD(t);
   const pr = pullD(t);
   const hb = heart(t);
@@ -510,13 +544,15 @@ function sceneD(t, frame) {
     const yo = 980 * (1 - eOutBack(pw, 0.75));
     const b = 16 * (1 - eOutCubic(pw));
     const ww = IMG.woman.width * WOMAN.s, wh = IMG.woman.height * WOMAN.s;
-    ctx.save(); cam(ctx, k, 0.85);
+    const sw = sway(t);
+    const swf = c => { c.translate(PIVOT.x, PIVOT.y + sw.dy); c.rotate(sw.rot); c.scale(sw.sc, sw.sc); c.translate(-PIVOT.x, -PIVOT.y); };
+    ctx.save(); cam(ctx, kf, 0.85); swf(ctx);
     withBlur(ctx, b, c => c.drawImage(womanFX, WOMAN.x, WOMAN.y + yo, ww, wh));
     ctx.globalCompositeOperation = "lighter";
     withBlur(ctx, b, c => { c.globalAlpha = 0.5 + 0.25 * hb * alive; c.drawImage(womanRim, WOMAN.x, WOMAN.y + yo, ww, wh); });
     ctx.restore();
     // she occludes the glow behind her
-    ex.save(); cam(ex, k, 0.85);
+    ex.save(); cam(ex, kf, 0.85); swf(ex);
     ex.globalCompositeOperation = "destination-out";
     withBlur(ex, b + 3, c => c.drawImage(womanFX, WOMAN.x, WOMAN.y + yo, ww, wh));
     ex.restore();
@@ -524,7 +560,7 @@ function sceneD(t, frame) {
 
   // pink mass rising from below (soft, defocused edges)
   const pm = eOutCubic(P(t, T.impact, 8.85));
-  const yTop = lerp(H + 260, 1140, pm);
+  const yTop = lerp(H + 260, 1018, pm);
   tx.clearRect(0, 0, W, H);
   tx.save();
   const g = tx.createRadialGradient(540, yTop + 760, 120, 540, yTop + 760, 900);
@@ -537,20 +573,20 @@ function sceneD(t, frame) {
   tx.drawImage(IMG.pb, 180, yTop + 10, 1100, 90);
   // keep the lower area dark for the copy
   tx.globalAlpha = 1;
-  const d = tx.createLinearGradient(0, 1380, 0, 1520);
+  const d = tx.createLinearGradient(0, 1258, 0, 1398);
   d.addColorStop(0, "rgba(14,3,9,0)"); d.addColorStop(1, "rgba(14,3,9,0.9)");
-  tx.fillStyle = d; tx.fillRect(0, 1380, W, H - 1380);
+  tx.fillStyle = d; tx.fillRect(0, 1258, W, H - 1258);
   tx.restore();
-  ctx.save(); cam(ctx, k, 1.0);
+  ctx.save(); cam(ctx, kf, 1.0);
   ctx.filter = "blur(26px)"; ctx.drawImage(tmp, 0, 0); ctx.filter = "none";
   ctx.restore();
-  ex.save(); cam(ex, k, 1.0); ex.globalAlpha = 0.14; ex.filter = "blur(30px)"; ex.drawImage(tmp, 0, 0); ex.restore();
+  ex.save(); cam(ex, kf, 1.0); ex.globalAlpha = 0.14; ex.filter = "blur(30px)"; ex.drawImage(tmp, 0, 0); ex.restore();
 
   // title band + OUTUBRO ROSA built bottom-up
   const pbnd = eOutCubic(P(t, 8.75, 9.3));
   const bd = D.band, bh = IMG.band.height * (bd.w / IMG.band.width);
   const bx0 = 540 - bd.w / 2;
-  ctx.save(); cam(ctx, k, 1.1);
+  ctx.save(); cam(ctx, kf, 1.1);
   ctx.translate(540, bd.cy); ctx.rotate(bd.rot); ctx.translate(-540, -bd.cy);
   ctx.save();
   ctx.shadowColor = "rgba(0,0,0,0.55)"; ctx.shadowBlur = 40; ctx.shadowOffsetY = 18;
@@ -572,12 +608,12 @@ function sceneD(t, frame) {
     ctx.globalCompositeOperation = "lighter"; ctx.drawImage(tmp, 0, 0); ctx.globalCompositeOperation = "source-over";
   }
   ctx.restore();
-  ex.save(); cam(ex, k, 1.1); ex.translate(540, bd.cy); ex.rotate(bd.rot); ex.translate(-540, -bd.cy);
+  ex.save(); cam(ex, kf, 1.1); ex.translate(540, bd.cy); ex.rotate(bd.rot); ex.translate(-540, -bd.cy);
   drawStroke(ex, IMG.band, bx0, bd.cy, bx0 + bd.w, bd.cy, 1, pbnd, 0.2); ex.restore();
 
   if (t > 8.95) {
     wornText(c => {
-      cam(c, k, 1.1);
+      cam(c, kf, 1.1);
       c.translate(540, bd.cy); c.rotate(bd.rot); c.translate(-540, -bd.cy);
       const bt = IMG.band.height * 0.59 * (bd.w / IMG.band.width) / 2;            // half visible band thickness
       c.beginPath(); c.rect(-100, bd.cy - 400, W + 200, 400 + bt + 6); c.clip();   // letters emerge from the band's lower edge
@@ -603,7 +639,7 @@ function sceneD(t, frame) {
   for (const s of D_FRONT) {
     const p = eOutCubic(P(t, s.t, s.t + s.d));
     for (const c of [ctx, ex]) {
-      c.save(); cam(c, k, 1.4);
+      c.save(); cam(c, kf, 1.4);
       drawStroke(c, IMG[s.img], s.a[0], s.a[1], s.b[0], s.b[1], s.th, p, c === ctx ? s.al : 0.3, 0);
       c.restore();
     }
@@ -633,8 +669,8 @@ function sceneD(t, frame) {
     const n = Math.min(call.length, Math.floor((t - T.call) / 0.024) + 1);
     const gp = 0.9 + 0.9 * pulseAt(t, [T.small], 3.5) + 0.25 * hb * alive;
     for (const c of [ctx, ex]) {
-      c.save(); cam(c, k, 1.15);
-      c.font = "italic 900 57px Mont"; c.textBaseline = "alphabetic";
+      c.save(); cam(c, kf, 1.15);
+      c.font = "italic 900 52px Mont"; c.textBaseline = "alphabetic";
       const tw = c.measureText(call).width, x0 = 540 - tw / 2;
       const Ls = letters(c, call);
       for (let i = 0; i < n; i++) {
@@ -649,7 +685,7 @@ function sceneD(t, frame) {
       // typing cursor
       if (c === ctx && t < 11.2 && Math.floor(t * 4) % 2 === 0) {
         const cx = n < call.length ? x0 + Ls[n].x : x0 + tw + 6;
-        c.fillStyle = PINK_CORE; c.fillRect(cx, D.callY - 45, 5, 52);
+        c.fillStyle = PINK_CORE; c.fillRect(cx, D.callY - 41, 5, 48);
       }
       c.restore();
     }
@@ -658,13 +694,13 @@ function sceneD(t, frame) {
   // subtitle in the black tag
   const ps = eOutCubic(P(t, T.sub, T.sub + 0.35)), pst = eOutCubic(P(t, T.sub + 0.08, T.sub + 0.5));
   if (ps > 0) {
-    ctx.save(); cam(ctx, k, 1.15);
-    tag(ctx, 200, D.tagY, 680, 98, ps, "rgba(7,4,8,0.95)");
-    ctx.font = "600 35px Mont"; ctx.textAlign = "center"; ctx.fillStyle = "#fff";
+    ctx.save(); cam(ctx, kf, 1.15);
+    tag(ctx, 200, D.tagY, 680, 96, ps, "rgba(7,4,8,0.95)");
+    ctx.font = "600 34px Mont"; ctx.textAlign = "center"; ctx.fillStyle = "#fff";
     withBlur(ctx, 10 * (1 - pst), c => {
       c.globalAlpha = pst;
-      c.fillText("Projeto feminino de", 540, D.tagY + 42 + (1 - pst) * 10);
-      c.fillText("emagrecimento e autocuidado", 540, D.tagY + 83 + (1 - pst) * 10);
+      c.fillText("Projeto Feminino de", 540, D.tagY + 37 + (1 - pst) * 10);
+      c.fillText("Emagrecimento e Autocuidado.", 540, D.tagY + 79 + (1 - pst) * 10);
     });
     ctx.restore();
   }
@@ -672,11 +708,11 @@ function sceneD(t, frame) {
   // awareness line (secondary)
   const pc = eOutCubic(P(t, T.consc, T.consc + 0.5));
   if (pc > 0) {
-    ctx.save(); cam(ctx, k, 1.15);
+    ctx.save(); cam(ctx, kf, 1.15);
     withBlur(ctx, 12 * (1 - pc), c => {
       c.globalAlpha = pc;
       c.font = "500 32px Mont"; c.textAlign = "center"; c.fillStyle = "#ffe1ec";
-      c.fillText("Conscientização e prevenção do câncer de mama.", 540, D.consY + (1 - pc) * 14);
+      c.fillText("Conscientização e Prevenção do Câncer de Mama.", 540, D.consY + (1 - pc) * 14);
     });
     ctx.restore();
   }
@@ -685,25 +721,21 @@ function sceneD(t, frame) {
   const pk = P(t, T.capsule, T.capsule + 0.5);
   if (pk > 0) {
     const s = lerp(0.55, 1, eOutBack(pk, 2.0)), a = eOutCubic(P(t, T.capsule, T.capsule + 0.15));
-    const cw = 900, chh = 94, cx = 540, cy = D.capY + chh / 2;
+    const cw = 760, chh = 107, cx = 540, cy = D.capY + chh / 2;
     const glowK = 0.75 + 1.2 * pulseAt(t, [T.capsule], 5) + 0.2 * hb * alive;
     for (const c of [ctx, ex]) {
-      c.save(); cam(c, k, 1.15);
+      c.save(); cam(c, kf, 1.15);
       c.translate(cx, cy); c.scale(s, s);
       c.globalAlpha = a;
       roundRect(c, -cw / 2, -chh / 2, cw, chh, chh / 2);
       if (c === ctx) { c.fillStyle = "rgba(14,5,10,0.93)"; c.fill(); }
       c.lineWidth = 3.5; c.strokeStyle = c === ctx ? "#ff4f98" : rgba(PINK, clamp(glowK, 0, 2) * 0.8); c.stroke();
-      // live dot
-      const dp = 0.6 + 0.4 * Math.sin(t * 6);
-      c.fillStyle = c === ctx ? ORANGE : `rgba(248,99,2,${0.6 * dp})`;
-      c.beginPath(); c.arc(-cw / 2 + 46, 0, 9 + 2 * dp, 0, TAU); c.fill();
       if (c === ctx) {
         const pt = eOutCubic(P(t, T.capsule + 0.08, T.capsule + 0.45));
         c.globalAlpha = a * pt;
-        c.font = "700 31px Mont"; c.textAlign = "center"; c.fillStyle = "#fff";
-        c.fillText("Escaneie o QR Code na recepção", 22, -5);
-        c.fillText("da sua academia.", 22, 31);
+        c.font = "700 34px Mont"; c.textAlign = "center"; c.fillStyle = "#fff";
+        c.fillText("Escaneie o QR Code na Recepção", 0, 41 - chh / 2);
+        c.fillText("da Sua Academia.", 0, 85 - chh / 2);
       }
       c.restore();
     }
@@ -712,7 +744,7 @@ function sceneD(t, frame) {
   // fine print
   const pf = eOutCubic(P(t, T.small, T.small + 0.4));
   if (pf > 0) {
-    ctx.save(); cam(ctx, k, 1.15);
+    ctx.save(); cam(ctx, kf, 1.15);
     withBlur(ctx, 10 * (1 - pf), c => {
       c.globalAlpha = pf;
       c.font = "500 32px Mont"; c.textAlign = "center"; c.fillStyle = "rgba(255,255,255,0.93)";
@@ -732,15 +764,15 @@ function renderFrame(t) {
 
   // background camera follows whichever scene leads
   let bk;
-  if (t < T.groove) bk = { s: lerp(1, 1.04, P(t, 0, 3.3)), cx: 540, cy: 700, ox: 0, oy: 0 };
-  else if (t < T.impact) bk = { s: 1.04 * zoomB(t), cx: 540, cy: 900, ox: 0, oy: 0 };
+  if (t < T.groove) bk = { s: 1, cx: 540, cy: 960, ox: 0, oy: 0 };
+  else if (t < T.impact) bk = { s: zoomB(t), cx: 540, cy: 960, ox: 0, oy: 0 };
   else bk = camD(t);
   const en = energy(t), hb = heart(t);
   const glow = [];
   if (t < T.groove + 0.4) glow.push({ x: 540, y: 610, r: 760, a: (0.10 + 0.07 * hb) * (1 - P(t, T.groove, T.groove + 0.4)) });
   if (t >= T.groove && t < 8.3) glow.push({ x: 540, y: 900, r: 900, a: (0.14 + 0.1 * hb) * popB(t).a });
   if (t >= T.impact) glow.push({ x: 540, y: 860, r: 980, a: 0.12 + 0.08 * hb * (t > 16 ? 0.3 : 1) });
-  background(bk, glow);
+  background(t, bk, glow);
 
   sceneA(t);
   sceneB(t);

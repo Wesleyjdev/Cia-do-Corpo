@@ -71,6 +71,40 @@ def paper(w=1400, h=2400):
     Image.fromarray((img * 255).astype(np.uint8)).save(OUT / "paper.jpg", quality=92)
 
 
+def paper_fine(w=1240, h=2204):
+    """Fine crumpled paper as a neutral-grey overlay (128 = no change under soft-light).
+
+    Height field = network of short random creases (tent ridges/valleys) + soft undulation;
+    lit from the top-left, so every crease shows as a thin light/dark pair (no facets)."""
+    hgt = smooth_noise((h, w), 90, rng) * 5
+    for sig, amp in [(40, 3.0), (16, 1.4), (7, 0.5)]:      # ridged noise: organic, curvy crinkles
+        hgt -= amp * np.abs(smooth_noise((h, w), sig, rng))
+    for _ in range(1500):
+        x0, y0 = rng.uniform(-40, w + 40), rng.uniform(-40, h + 40)
+        ang = rng.uniform(0, np.pi)
+        L = rng.uniform(15, 120) * (1 if rng.random() > 0.1 else 2.0)
+        wid = rng.uniform(2.5, 7.0)
+        amp = rng.uniform(0.4, 1.4) * rng.choice([-1, 1])
+        dx, dy = np.cos(ang), np.sin(ang)
+        x1, y1 = x0 + dx * L, y0 + dy * L
+        bx0, bx1 = int(max(0, min(x0, x1) - 8)), int(min(w, max(x0, x1) + 8))
+        by0, by1 = int(max(0, min(y0, y1) - 8)), int(min(h, max(y0, y1) + 8))
+        if bx1 <= bx0 or by1 <= by0:
+            continue
+        yy, xx = np.mgrid[by0:by1, bx0:bx1].astype(np.float64)
+        u = (xx - x0) * dx + (yy - y0) * dy
+        v = -(xx - x0) * dy + (yy - y0) * dx
+        taper = np.clip(np.minimum(u, L - u) / (L * 0.25), 0, 1)
+        hgt[by0:by1, bx0:bx1] += amp * np.clip(1 - np.abs(v) / wid, 0, 1) * taper * ((u > 0) & (u < L))
+    hgt = ndimage.gaussian_filter(hgt, 0.7)
+    gx, gy = np.gradient(hgt, axis=1), np.gradient(hgt, axis=0)
+    shade = -(gx * -0.5 + gy * -0.8)
+    shade = shade / (np.percentile(np.abs(shade), 99) + 1e-9)
+    fib = ndimage.gaussian_filter(rng.standard_normal((h, w)), (0.7, 2.0)) * 0.12
+    v = np.clip(0.5 + 0.32 * shade + fib * 0.5, 0, 1)
+    Image.fromarray((v * 255).astype(np.uint8), "L").save(OUT / "paper_fine.jpg", quality=92)
+
+
 # ------------------------------------------------------------------ grain
 def grain():
     for i in range(8):
@@ -141,6 +175,7 @@ def worn(w=1600, h=400):
 
 
 if __name__ == "__main__":
+    paper_fine()
     paper()
     if len(sys.argv) > 2:
         sys.exit()

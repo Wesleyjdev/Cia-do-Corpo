@@ -9,10 +9,11 @@
 - `assets/` — trilha, logos originais (sem alteração), recorte da mulher (`woman.png`), fontes, texturas procedurais.
 - `tools/` — scripts que geram os assets:
   - `analyze_audio.py` (librosa) · `cutout.py` (BiRefNet-portrait + pymatting, a partir do HEIC original) · `gen_textures.py`
+  - `clean_plate.py` — fundo da academia sem a mulher (BiRefNet + matte do iPhone + LaMa/torch), recorte 9:16 e grade
 
 ## Renderizar
 ```
-pip install librosa rembg onnxruntime pillow-heif pymatting scipy   # só para regenerar assets
+pip install librosa rembg onnxruntime pillow-heif pymatting scipy torch   # só para regenerar assets
 npm i playwright                                                     # ou playwright global
 node render.mjs --stills 4,8,15      # quadros-chave
 node render.mjs --sheet 0.5          # contact sheet
