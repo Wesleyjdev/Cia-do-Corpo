@@ -96,7 +96,8 @@ const SRC = {
 };
 for (let i = 0; i < 8; i++) SRC["g" + i] = `assets/tex/grain_${i}.png`;
 const CDC_BOX = [98, 106, 744, 430];                      // transparent padding trimmed at draw time only
-const WOMAN = { s: 0.4712, x: 190.4, y: 511.9 };            // cutout scale/placement in the final comp
+const WOMAN = { s: 0.62, x: 80, y: 360 };                   // v1 size; visible to mid-chest above the band
+const WOMAN_FADE = [1330, 1440];                            // cutout rows where the body dissolves (behind the band)
 const PIVOT = { x: 540, y: 1118 };                          // sway pivot: cutout base centre, hidden by the band
 
 let womanFX, womanRim, wornFull, grainPat = [];
@@ -119,9 +120,9 @@ function prep() {
   c.drawImage(w, 0, 0);
   c.filter = "none";
   c.globalCompositeOperation = "destination-out";
-  const g = c.createLinearGradient(0, 1500, 0, 1760);
+  const g = c.createLinearGradient(0, WOMAN_FADE[0], 0, WOMAN_FADE[1]);
   g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(1, "rgba(0,0,0,1)");
-  c.fillStyle = g; c.fillRect(0, 1500, w.width, w.height - 1500);
+  c.fillStyle = g; c.fillRect(0, WOMAN_FADE[0], w.width, w.height - WOMAN_FADE[0]);
   // pink rim light: silhouette minus a shifted, blurred silhouette = edge band
   womanRim = mk(w.width, w.height);
   const r = womanRim.getContext("2d");
@@ -368,7 +369,7 @@ function sceneA(t) {
 
 // ================================================================== CIRCLE state across B/C/D
 const CB = { x: 540, y: 900, r: 330 };
-const CD = { x: 540, y: 852, r: 220 };
+const CD = { x: 540, y: 840, r: 265 };
 function zoomB(t) {                                     // camera scale for scene B (push-in, then dive in)
   const push = lerp(1, 1.1, eInOutSine(P(t, T.groove, T.preA)));
   const z = P(t, T.preA, 6.45);
@@ -538,6 +539,34 @@ function sceneD(t, frame) {
   withBlur(ctx, 10 * (1 - pr), c => ring(c, false, ci.x, ci.y, ci.r, t, amp));
   withBlur(ex, 10 * (1 - pr), c => ring(c, true, ci.x, ci.y, ci.r, t, amp, Math.min(1.9, flash * (0.85 + 0.25 * hb * alive))));
 
+  // CORRE QUE AINDA DÁ TEMPO! — typed at the top, behind the woman (her bun overlaps it a little)
+  if (t > T.call) {
+    const call = "CORRE QUE AINDA DÁ TEMPO!";
+    const n = Math.min(call.length, Math.floor((t - T.call) / 0.024) + 1);
+    const gp = 0.9 + 0.9 * pulseAt(t, [T.small], 3.5) + 0.25 * hb * alive;
+    for (const c of [ctx, ex]) {
+      c.save(); cam(c, kf, 1.15);
+      c.font = "italic 900 52px Mont"; c.textBaseline = "alphabetic";
+      const tw = c.measureText(call).width, x0 = 540 - tw / 2;
+      const Ls = letters(c, call);
+      for (let i = 0; i < n; i++) {
+        const age = t - (T.call + i * 0.024);
+        const fl = Math.exp(-age * 9);
+        c.save();
+        c.globalAlpha = c === ctx ? 1 : clamp(0.85 * gp + fl, 0, 2);
+        c.fillStyle = c === ctx ? (fl > 0.3 ? "#ffd3e6" : PINK_CORE) : rgba(PINK, 1);
+        c.fillText(Ls[i].ch, x0 + Ls[i].x, D.callY);
+        c.restore();
+      }
+      // typing cursor
+      if (c === ctx && t < 11.2 && Math.floor(t * 4) % 2 === 0) {
+        const cx = n < call.length ? x0 + Ls[n].x : x0 + tw + 6;
+        c.fillStyle = PINK_CORE; c.fillRect(cx, D.callY - 41, 5, 48);
+      }
+      c.restore();
+    }
+  }
+
   // woman rises from behind the mass, lands on the 9.74 beat
   const pw = P(t, 8.3, T.land);
   if (pw > 0) {
@@ -560,7 +589,7 @@ function sceneD(t, frame) {
 
   // pink mass rising from below (soft, defocused edges)
   const pm = eOutCubic(P(t, T.impact, 8.85));
-  const yTop = lerp(H + 260, 1018, pm);
+  const yTop = lerp(H + 260, 1090, pm);
   tx.clearRect(0, 0, W, H);
   tx.save();
   const g = tx.createRadialGradient(540, yTop + 760, 120, 540, yTop + 760, 900);
@@ -661,34 +690,6 @@ function sceneD(t, frame) {
       c.translate(D.cdc.x + D.cdc.w / 2, D.pm.y + lh / 2); c.scale(s, s);
       c.drawImage(IMG.logoCDC, sx, sy, sw, sh, -D.cdc.w / 2, -ch / 2, D.cdc.w, ch);
     });
-  }
-
-  // CORRE QUE AINDA DÁ TEMPO! — typed at the top
-  if (t > T.call) {
-    const call = "CORRE QUE AINDA DÁ TEMPO!";
-    const n = Math.min(call.length, Math.floor((t - T.call) / 0.024) + 1);
-    const gp = 0.9 + 0.9 * pulseAt(t, [T.small], 3.5) + 0.25 * hb * alive;
-    for (const c of [ctx, ex]) {
-      c.save(); cam(c, kf, 1.15);
-      c.font = "italic 900 52px Mont"; c.textBaseline = "alphabetic";
-      const tw = c.measureText(call).width, x0 = 540 - tw / 2;
-      const Ls = letters(c, call);
-      for (let i = 0; i < n; i++) {
-        const age = t - (T.call + i * 0.024);
-        const fl = Math.exp(-age * 9);
-        c.save();
-        c.globalAlpha = c === ctx ? 1 : clamp(0.85 * gp + fl, 0, 2);
-        c.fillStyle = c === ctx ? (fl > 0.3 ? "#ffd3e6" : PINK_CORE) : rgba(PINK, 1);
-        c.fillText(Ls[i].ch, x0 + Ls[i].x, D.callY);
-        c.restore();
-      }
-      // typing cursor
-      if (c === ctx && t < 11.2 && Math.floor(t * 4) % 2 === 0) {
-        const cx = n < call.length ? x0 + Ls[n].x : x0 + tw + 6;
-        c.fillStyle = PINK_CORE; c.fillRect(cx, D.callY - 41, 5, 48);
-      }
-      c.restore();
-    }
   }
 
   // subtitle in the black tag
