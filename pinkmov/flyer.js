@@ -97,8 +97,8 @@ const SRC = {
 for (let i = 0; i < 8; i++) SRC["g" + i] = `assets/tex/grain_${i}.png`;
 const CDC_BOX = [98, 106, 744, 430];                      // transparent padding trimmed at draw time only
 const WOMAN = { s: 0.62, x: 80, y: 360 };                   // v1 size; visible to mid-chest above the band
-const WOMAN_FADE = [1330, 1440];                            // cutout rows where the body dissolves (behind the band)
-const PIVOT = { x: 540, y: 1118 };                          // sway pivot: cutout base centre, hidden by the band
+const WOMAN_FADE = [1550, 1670];                            // cutout rows where the body dissolves (behind the band)
+const PIVOT = { x: 540, y: 1256 };                          // sway pivot: cutout base centre, hidden by the band
 
 let womanFX, womanRim, wornFull, grainPat = [];
 
@@ -486,6 +486,12 @@ function sceneC(t) {
       cc.fillText("Projeto Feminino de", 540, 1257);
       cc.fillText("Emagrecimento e Autocuidado.", 540, 1306);
     });
+    const pcs = eOutCubic(P(t, 6.98, 7.45));               // awareness line (lives here, not in the final comp)
+    withBlur(c, 12 * (1 - pcs), cc => {
+      cc.globalAlpha = alpha * pcs;
+      cc.font = "500 34px Mont"; cc.fillStyle = "#ffe1ec";
+      cc.fillText("Conscientização e Prevenção do Câncer de Mama.", 540, 1392 + (1 - pcs) * 14);
+    });
   });
   ctx.restore();
   ctx.restore();
@@ -496,9 +502,9 @@ const D = {
   pm: { x: 58, y: 262, w: 262 },
   cdc: { x: 800, y: 268, w: 222 },
   callY: 513,                                   // 52 px: 864 px wide, accent top 50 px under the logos
-  band: { cy: 1118, w: 1180, rot: -0.035 },
-  titleY: 1118,
-  tagY: 1251, consY: 1412, capY: 1460, smallY: 1632,   // >= 40 px between blocks, all above y 1640
+  band: { cy: 1256, w: 1180, rot: -0.035 },    // band crosses where her crossed arms start
+  titleY: 1256,
+  tagY: 1336, capY: 1468, smallY: 1633,        // tag hangs from the band's lower edge (one title unit); 38 px gaps; all above y 1640
 };
 const D_BACK = [
   { img: "pa", t: T.impact, d: 0.32, a: [-180, 1520], b: [1260, 640], th: 1.25, al: 0.9 },
@@ -589,7 +595,7 @@ function sceneD(t, frame) {
 
   // pink mass rising from below (soft, defocused edges)
   const pm = eOutCubic(P(t, T.impact, 8.85));
-  const yTop = lerp(H + 260, 1090, pm);
+  const yTop = lerp(H + 260, 1230, pm);
   tx.clearRect(0, 0, W, H);
   tx.save();
   const g = tx.createRadialGradient(540, yTop + 760, 120, 540, yTop + 760, 900);
@@ -602,9 +608,9 @@ function sceneD(t, frame) {
   tx.drawImage(IMG.pb, 180, yTop + 10, 1100, 90);
   // keep the lower area dark for the copy
   tx.globalAlpha = 1;
-  const d = tx.createLinearGradient(0, 1258, 0, 1398);
+  const d = tx.createLinearGradient(0, 1345, 0, 1465);
   d.addColorStop(0, "rgba(14,3,9,0)"); d.addColorStop(1, "rgba(14,3,9,0.9)");
-  tx.fillStyle = d; tx.fillRect(0, 1258, W, H - 1258);
+  tx.fillStyle = d; tx.fillRect(0, 1345, W, H - 1345);
   tx.restore();
   ctx.save(); cam(ctx, kf, 1.0);
   ctx.filter = "blur(26px)"; ctx.drawImage(tmp, 0, 0); ctx.filter = "none";
@@ -696,24 +702,12 @@ function sceneD(t, frame) {
   const ps = eOutCubic(P(t, T.sub, T.sub + 0.35)), pst = eOutCubic(P(t, T.sub + 0.08, T.sub + 0.5));
   if (ps > 0) {
     ctx.save(); cam(ctx, kf, 1.15);
-    tag(ctx, 200, D.tagY, 680, 96, ps, "rgba(7,4,8,0.95)");
+    tag(ctx, 200, D.tagY, 680, 94, ps, "rgba(7,4,8,0.95)");
     ctx.font = "600 34px Mont"; ctx.textAlign = "center"; ctx.fillStyle = "#fff";
     withBlur(ctx, 10 * (1 - pst), c => {
       c.globalAlpha = pst;
-      c.fillText("Projeto Feminino de", 540, D.tagY + 37 + (1 - pst) * 10);
-      c.fillText("Emagrecimento e Autocuidado.", 540, D.tagY + 79 + (1 - pst) * 10);
-    });
-    ctx.restore();
-  }
-
-  // awareness line (secondary)
-  const pc = eOutCubic(P(t, T.consc, T.consc + 0.5));
-  if (pc > 0) {
-    ctx.save(); cam(ctx, kf, 1.15);
-    withBlur(ctx, 12 * (1 - pc), c => {
-      c.globalAlpha = pc;
-      c.font = "500 32px Mont"; c.textAlign = "center"; c.fillStyle = "#ffe1ec";
-      c.fillText("Conscientização e Prevenção do Câncer de Mama.", 540, D.consY + (1 - pc) * 14);
+      c.fillText("Projeto Feminino de", 540, D.tagY + 36 + (1 - pst) * 10);
+      c.fillText("Emagrecimento e Autocuidado.", 540, D.tagY + 78 + (1 - pst) * 10);
     });
     ctx.restore();
   }
@@ -722,7 +716,7 @@ function sceneD(t, frame) {
   const pk = P(t, T.capsule, T.capsule + 0.5);
   if (pk > 0) {
     const s = lerp(0.55, 1, eOutBack(pk, 2.0)), a = eOutCubic(P(t, T.capsule, T.capsule + 0.15));
-    const cw = 760, chh = 107, cx = 540, cy = D.capY + chh / 2;
+    const cw = 760, chh = 102, cx = 540, cy = D.capY + chh / 2;
     const glowK = 0.75 + 1.2 * pulseAt(t, [T.capsule], 5) + 0.2 * hb * alive;
     for (const c of [ctx, ex]) {
       c.save(); cam(c, kf, 1.15);
@@ -735,8 +729,8 @@ function sceneD(t, frame) {
         const pt = eOutCubic(P(t, T.capsule + 0.08, T.capsule + 0.45));
         c.globalAlpha = a * pt;
         c.font = "700 34px Mont"; c.textAlign = "center"; c.fillStyle = "#fff";
-        c.fillText("Escaneie o QR Code na Recepção", 0, 41 - chh / 2);
-        c.fillText("da Sua Academia.", 0, 85 - chh / 2);
+        c.fillText("Escaneie o QR Code na Recepção", 0, 38 - chh / 2);
+        c.fillText("da Sua Academia.", 0, 82 - chh / 2);
       }
       c.restore();
     }
