@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Cia Pink Mov – motion flyer</title>
+<style>
+  @font-face { font-family: "Bebas"; src: url(assets/fonts/BebasNeue-Regular.ttf); }
+  @font-face { font-family: "Mont"; font-weight: 500; src: url(assets/fonts/Montserrat-500.ttf); }
+  @font-face { font-family: "Mont"; font-weight: 600; src: url(assets/fonts/Montserrat-600.ttf); }
+  @font-face { font-family: "Mont"; font-weight: 700; src: url(assets/fonts/Montserrat-700.ttf); }
+  @font-face { font-family: "Mont"; font-weight: 800; src: url(assets/fonts/Montserrat-800.ttf); }
+  @font-face { font-family: "Mont"; font-weight: 900; font-style: italic; src: url(assets/fonts/Montserrat-900i.ttf); }
+  html, body { margin: 0; background: #000; }
+  canvas { display: block; width: 1080px; height: 1920px; }
+  body.preview canvas { width: auto; height: 86vh; margin: 1vh auto; }
+  #ui { display: none; color: #ddd; font: 14px sans-serif; text-align: center; }
+  body.preview #ui { display: block; }
+  #ui input { width: 60vh; vertical-align: middle; }
+</style>
+</head>
+<body>
+<canvas id="c" width="1080" height="1920"></canvas>
+<div id="ui">
+  <button id="play">▶︎ play</button>
+  <input id="scrub" type="range" min="0" max="17.466" step="0.0333" value="0">
+  <span id="tc">0.00s</span>
+</div>
+<audio id="aud" src="assets/audio.mp3" preload="auto"></audio>
+<script src="data/audio.js"></script>
+<script src="flyer.js"></script>
+</body>
+</html>
