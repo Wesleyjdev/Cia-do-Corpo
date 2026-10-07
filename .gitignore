@@ -2,3 +2,5 @@ __pycache__/
 pinkmov/output/frames/
 pinkmov/output/sheet/
 pinkmov/node_modules
+/*.whl
+!/fonts-0.1.0-py3-none-any.whl

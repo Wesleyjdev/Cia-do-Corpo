@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Exemplo – timeline determinística</title>
+<style>
+  html, body { margin: 0; background: #000; }
+  canvas { display: block; width: 1080px; height: 1920px; }
+  body.preview canvas { width: auto; height: 90vh; margin: 2vh auto; }
+</style>
+</head>
+<body>
+<canvas id="c" width="1080" height="1920"></canvas>
+<!-- gerado por: python3 analyze_audio.py audio.mp3 example/audio.json --js -->
+<script src="audio.js"></script>
+<script>
+(() => {
+  const W = 1080, H = 1920, A = window.AUDIO;
+  const ctx = document.getElementById("c").getContext("2d");
+  const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+  const frame = t => A.frames[clamp(Math.floor(t * A.fps), 0, A.frames.length - 1)];
+  // pulso que decai a partir da última batida
+  const pulse = (t, k = 8) => { let v = 0; for (const b of A.beats) { if (b > t) break; v = Math.exp(-(t - b) * k); } return v; };
+
+  // tudo aqui depende só de t -> qualquer quadro pode ser renderizado em qualquer ordem
+  function renderFrame(t) {
+    const f = frame(t), p = pulse(t);
+    ctx.fillStyle = "#0b0b10"; ctx.fillRect(0, 0, W, H);
+    // anel de espectro
+    const n = f.spec ? f.spec.length : 0, r = 300 * (1 + 0.04 * p);
+    ctx.strokeStyle = "#f6045c"; ctx.lineWidth = 6; ctx.lineCap = "round";
+    ctx.beginPath();
+    for (let i = 0; i < n * 2; i++) {
+      const v = f.spec[i < n ? i : 2 * n - 1 - i], a = -Math.PI / 2 + (i / (n * 2)) * Math.PI * 2;
+      const l = 12 + v * v * 160;
+      ctx.moveTo(540 + Math.cos(a) * r, 900 + Math.sin(a) * r);
+      ctx.lineTo(540 + Math.cos(a) * (r + l), 900 + Math.sin(a) * (r + l));
+    }
+    ctx.stroke();
+    ctx.beginPath(); ctx.arc(540, 900, r - 20, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(246,4,92,${0.15 + 0.35 * p})`; ctx.fill();
+    // barras de bandas
+    ["sub", "bass", "lowmid", "mid", "high"].forEach((k, i) => {
+      const h = 400 * clamp(f[k] ?? 0, 0, 1.2);
+      ctx.fillStyle = "#fff"; ctx.fillRect(170 + i * 160, 1600 - h, 100, h);
+    });
+    ctx.fillStyle = "#fff"; ctx.font = "bold 56px sans-serif"; ctx.textAlign = "center";
+    ctx.fillText(`${t.toFixed(2)}s · ${A.bpm} BPM`, 540, 1720);
+  }
+
+  window.renderFrame = renderFrame;
+  window.DURATION = A.duration;
+  window.ready = document.fonts.ready.then(() => { renderFrame(0); return true; });
+
+  // preview no navegador (sem ?render=1): toca em tempo real a partir do relógio
+  if (!new URLSearchParams(location.search).has("render")) {
+    document.body.classList.add("preview");
+    const t0 = performance.now();
+    (function loop() { renderFrame(((performance.now() - t0) / 1000) % A.duration); requestAnimationFrame(loop); })();
+  }
+})();
+</script>
+</body>
+</html>

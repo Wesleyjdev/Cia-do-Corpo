@@ -1,0 +1,9 @@
+{
+  "name": "motion-pipeline",
+  "private": true,
+  "type": "module",
+  "description": "Análise de áudio -> render frame a frame (Chromium headless) -> MP4 com ffmpeg",
+  "dependencies": {
+    "playwright": "^1.56.0"
+  }
+}

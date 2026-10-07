@@ -1,0 +1,4 @@
+node_modules
+output/
+example/audio.json
+example/audio.js
