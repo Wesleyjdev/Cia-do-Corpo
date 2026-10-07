@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Sabadão Funcional 11ª Edição: motion flyer</title>
+<style>
+  @font-face { font-family: "Knewave"; src: url("assets/fonts/Knewave-Regular.woff2") format("woff2"); }
+  @font-face { font-family: "Montserrat"; font-weight: 700; src: url("assets/fonts/Montserrat-700n.ttf"); }
+  @font-face { font-family: "Montserrat"; font-weight: 800; src: url("assets/fonts/Montserrat-800n.ttf"); }
+  @font-face { font-family: "Montserrat"; font-weight: 900; src: url("assets/fonts/Montserrat-900n.ttf"); }
+  html, body { margin: 0; background: #1a0a03; }
+  canvas { display: block; }
+  body.preview { display: grid; place-items: center; min-height: 100vh; }
+  body.preview canvas { height: 96vh; width: auto; }
+  #hud { position: fixed; left: 8px; top: 8px; color: #fff; font: 12px monospace; }
+</style>
+</head>
+<body>
+<canvas id="c" width="1080" height="1920"></canvas>
+<script src="audio.js"></script>
+<script src="assets/manifest.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
