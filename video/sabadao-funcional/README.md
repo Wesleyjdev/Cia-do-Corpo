@@ -19,6 +19,7 @@ Prévia ao vivo: sirva `project/` por HTTP (`npx http-server project`) e abra
 - v2: o relance usa `assets/src/foto_mulher.jpg`. O matte (`foto_mulher_matte.png`) foi gerado
   com o modelo ISNet que vem no pacote npm `@imgly/background-removal-node` (rodado offline):
   `python3 tools/build_woman.py --model <medium.onnx>` refaz o matte; sem `--model` reaproveita o salvo.
-  Layout do portal (círculo, escala e posição dela) em `PORTAL` no `main.js`.
+  Layout do portal (círculo, escala e posição dela) em `PORTAL` no `main.js`; só a cena da
+  mulher (`sceneWoman`) mudou em relação à v1, transições e demais cenas são as aprovadas.
 - Textos, tempos (`T` em `js/main.js`, presos às batidas reais) e layout final (`FINAL`) ficam no topo do `main.js`.
 - Música: 125,1 BPM; groove em 2,71 s; maior impacto em 6,55 s; final em 8,46 s; última batida em 14,22 s.
