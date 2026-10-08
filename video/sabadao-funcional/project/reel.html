@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Sabadão Funcional: reel com fala</title>
+<style>
+  @font-face { font-family: "Knewave"; src: url("assets/fonts/Knewave-Regular.woff2") format("woff2"); }
+  @font-face { font-family: "Montserrat"; font-weight: 700; src: url("assets/fonts/Montserrat-700n.ttf"); }
+  @font-face { font-family: "Montserrat"; font-weight: 800; src: url("assets/fonts/Montserrat-800n.ttf"); }
+  @font-face { font-family: "Montserrat"; font-weight: 900; src: url("assets/fonts/Montserrat-900n.ttf"); }
+  html, body { margin: 0; background: #1a0a03; }
+  canvas { display: block; }
+  #lib { display: none; }
+</style>
+</head>
+<body>
+<canvas id="c" width="1080" height="1920"></canvas>
+<canvas id="lib" width="1080" height="1920"></canvas>
+<script src="audio.js"></script>
+<script src="assets/manifest.js"></script>
+<script src="assets/woman.js"></script>
+<script>
+  // main.js (the approved 15 s piece) is loaded as a library: it binds to #c,
+  // so give it its own hidden canvas while it boots
+  document.getElementById("c").id = "out"; document.getElementById("lib").id = "c";
+</script>
+<script src="js/main.js"></script>
+<script>
+  document.getElementById("c").id = "lib"; document.getElementById("out").id = "c";
+</script>
+<script src="reel_edl.js"></script>
+<script src="js/reel.js"></script>
+</body>
+</html>

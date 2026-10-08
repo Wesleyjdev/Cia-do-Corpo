@@ -1209,6 +1209,13 @@
     initPalm();
   }
 
+  // read-only access for other compositions (reel.html) to the same
+  // logo, fronds, leaf waves and final layout; the 15 s render is unaffected
+  window.SF = {
+    sceneFinal, renderLogo, placeLogo, frond, FR, leafWave, rays, particles, brush,
+    roundRect, calendarIcon, pinIcon, IMG, C, LC, LOX, LOY, T, FINAL,
+    ease: { clamp, lerp, prog, eOutCubic, eOutQuint, eOutExpo, eInCubic, eInOut, backOut, smooth },
+  };
   window.renderFrame = renderFrame;
   window.VIDEO = { width: W, height: H, fps: FPS, duration: DUR, frames: Math.round(DUR * FPS) };
   window.__ready = init().then(() => {

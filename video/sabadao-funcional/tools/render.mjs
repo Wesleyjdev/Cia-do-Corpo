@@ -81,8 +81,8 @@ const t0 = Date.now();
 async function work(p) {
   while (next < frames.length) {
     const f = frames[next++];
-    const b64 = await p.evaluate(t => {
-      window.renderFrame(t);
+    const b64 = await p.evaluate(async t => {
+      await window.renderFrame(t);
       return document.getElementById("c").toDataURL("image/png").split(",")[1];
     }, f / V.fps);
     await writeFile(path.join(outDir, String(f).padStart(5, "0") + ".png"), Buffer.from(b64, "base64"));
