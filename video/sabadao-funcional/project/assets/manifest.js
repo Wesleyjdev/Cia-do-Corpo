@@ -94,6 +94,5 @@ window.MANIFEST={
   "band": "brush_band.png",
   "under": "brush_under.png",
   "streak": "brush_streak.png"
- },
- "woman": "../src/arte_mulher.jpg"
+ }
 };

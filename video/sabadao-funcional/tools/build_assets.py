@@ -237,7 +237,6 @@ def main():
             "under": brush_mask(900, 60, "brush_under.png", density=0.6, ragged=0.04, taper=0.5, seed=3, solid=0.9),
             "streak": brush_mask(1400, 90, "brush_streak.png", density=0.5, ragged=0.2, taper=0.6, seed=4),
         },
-        "woman": "../src/arte_mulher.jpg",
     }
     (ROOT / "project" / "assets" / "manifest.js").write_text(
         "window.MANIFEST=" + json.dumps(man, indent=1, ensure_ascii=False) + ";\n", encoding="utf-8")

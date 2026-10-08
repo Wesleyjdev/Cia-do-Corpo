@@ -6,6 +6,7 @@ análise de áudio em `project/audio.js`.
 ```bash
 pip install psd-tools scipy numpy pillow       # uma vez
 python3 tools/build_assets.py                  # PSD + logo -> project/assets/layers
+python3 tools/build_woman.py                   # recorte + fundo limpo da foto dela (usa o matte salvo)
 python3 tools/analyze_audio.py project/assets/src/musica.m4a project/audio.json --js
 node tools/render.mjs --page project/index.html --workers 4            # -> output/frames
 node tools/render.mjs --page project/index.html --out output/keyframes --frames 135,225,390
@@ -15,5 +16,9 @@ tools/mux.sh output/frames project/assets/src/musica.m4a output/sabadao-funciona
 Prévia ao vivo: sirva `project/` por HTTP (`npx http-server project`) e abra
 `index.html?play` (clique para tocar) ou `index.html?t=7.5` para um frame.
 
+- v2: o relance usa `assets/src/foto_mulher.jpg`. O matte (`foto_mulher_matte.png`) foi gerado
+  com o modelo ISNet que vem no pacote npm `@imgly/background-removal-node` (rodado offline):
+  `python3 tools/build_woman.py --model <medium.onnx>` refaz o matte; sem `--model` reaproveita o salvo.
+  Layout do portal (círculo, escala e posição dela) em `PORTAL` no `main.js`.
 - Textos, tempos (`T` em `js/main.js`, presos às batidas reais) e layout final (`FINAL`) ficam no topo do `main.js`.
 - Música: 125,1 BPM; groove em 2,71 s; maior impacto em 6,55 s; final em 8,46 s; última batida em 14,22 s.

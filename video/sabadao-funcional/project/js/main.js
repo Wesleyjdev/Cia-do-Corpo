@@ -296,7 +296,10 @@
         tmpG.fillRect(0, 0, a.w, a.h);
         tmpG.globalCompositeOperation = "source-over";
       }
+      g.save();
+      g.globalAlpha = o.arcAlpha ?? 1;
       g.drawImage(tmpC, 0, 0, a.w, a.h, a.x + LOX, a.y + LOY, a.w, a.h);
+      g.restore();
     }
     // palm (warped)
     const pc = warpPalm(t, o.sway);
@@ -623,11 +626,13 @@
   const FR = {};   // cached fronds
 
   // Scene A (0 -> impact): solar plate, logo hero, rays, brush, fronds
-  function sceneLogo(g, t) {
-    // camera: slow continuous push-in, then dive into the logo at the impact
-    const dive = eInCubic(prog(t, T.impact - 0.42, 0.42));
+  // opt.bg: draw only the background (portal sequence draws logo/tag itself)
+  function sceneLogo(g, t, opt = {}) {
+    // camera: slow continuous push-in up to the impact
+    const dive = 0;
     const push = 1 + 0.07 * eInOut(prog(t, 0, T.impact));
     const cam = { s: push * (1 + 1.4 * dive), x: 0, y: -30 * dive };
+    const bgFade = opt.bg ? 1 - eOutCubic(prog(t, T.impact, 0.4)) : 1;
     solarBackground(g, t, cam);
 
     const lx = 540, ly = 905;
@@ -641,13 +646,13 @@
     const ls = s0 * popS * (1 + beat + intro) * cam.s;
 
     // rays + big brush behind logo (after groove)
-    rays(g, t, lx, ly - 40 * cam.s, cam.s * (0.85 + 0.15 * focus), clamp(prog(t, T.groove - 0.2, 0.5)) * (1 - dive));
+    rays(g, t, lx, ly - 40 * cam.s, cam.s * (0.85 + 0.15 * focus), clamp(prog(t, T.groove - 0.2, 0.5)) * (1 - dive) * bgFade);
     g.save();
     g.translate(lx, ly);
     g.scale(cam.s, cam.s);
     g.translate(-lx, -ly);
-    brush(g, IMG.brushBigLt, lx - 10, ly + 40, 1380, 500, -10, prog(t, T.groove, 0.55), 0.55);
-    brush(g, IMG.brushBig, lx + 40, ly + 140, 1200, 300, -14, prog(t, T.groove + 0.12, 0.5), 0.9);
+    brush(g, IMG.brushBigLt, lx - 10, ly + 40, 1380, 500, -10, prog(t, T.groove, 0.55), 0.55 * bgFade);
+    brush(g, IMG.brushBig, lx + 40, ly + 140, 1200, 300, -14, prog(t, T.groove + 0.12, 0.5), 0.9 * bgFade);
     g.restore();
 
     // mid fronds (reddish), slight sway, frame corners
@@ -661,6 +666,10 @@
     frond(g, FR.deepA, 1180, 1440, 198 + 2.5 * sw, 0.82, { blur: midBlur });
     g.restore();
 
+    if (opt.bg) {
+      particles(g, t, 1, { x: 0, y: 0 });
+      return;
+    }
     // logo
     const birdIn = prog(t, 0.6, 2.4);
     const lc = renderLogo(t, {
@@ -690,40 +699,6 @@
     particles(g, t, 0.55 + 0.45 * focus, { x: 0, y: 0 });
   }
 
-  // Scene B (impact -> final): the woman art, rigid boat-like sway, push-in
-  function sceneWoman(g, t) {
-    const lt = t - T.impact;
-    const d = T.final - T.impact;
-    const enter = eOutExpo(prog(lt, 0, 0.55));
-    const push = 1 + 0.06 * eInOut(prog(lt, 0, d));
-    const ov = 1.075;                           // overscan so rotation never shows edges
-    const s = ov * push * (1 + 0.10 * (1 - enter));
-    const rot = 1.5 * Math.sin(lt * 2 * Math.PI / 2.5 + 0.3);
-    const dy = 10 * Math.sin(lt * 2 * Math.PI / 2.5 + 1.9);
-    const ax = 430, ay = 520;                   // keep hand, logo and headline in frame
-    g.save();
-    g.fillStyle = "#e86a14";
-    g.fillRect(0, 0, W, H);
-    g.translate(ax, ay + dy);
-    g.rotate(rot * DEG);
-    g.scale(s, s);
-    g.translate(-ax, -ay);
-    if (enter < 1) g.filter = `blur(${(18 * (1 - enter)).toFixed(1)}px)`;
-    g.drawImage(IMG.woman, 0, 0, W, H);
-    g.restore();
-    // warm sun bloom from top right + light leak on hits
-    const hit = beatPulse(t, 0.25, T.impact);
-    g.save();
-    g.globalCompositeOperation = "screen";
-    const rg = g.createRadialGradient(1000, 120, 10, 1000, 120, 900);
-    rg.addColorStop(0, `rgba(255,226,150,${0.42 + 0.18 * hit})`);
-    rg.addColorStop(1, "rgba(255,160,60,0)");
-    g.fillStyle = rg;
-    g.fillRect(0, 0, W, H);
-    g.restore();
-    particles(g, t, 0.35, { x: 0, y: dy * 2 });
-  }
-
   // Scene C (final composition)
   const FINAL = {
     logo: { x: 540, y: 646, s: 0.60 },
@@ -734,7 +709,7 @@
     local: { y1: 1541, y2: 1595 },
   };
 
-  function sceneFinal(g, t) {
+  function sceneFinal(g, t, opt = {}) {
     const lt = t - T.final;
     const rise = eOutExpo(prog(lt, 0, 1.1));
     const hold = prog(t, T.complete, DUR - T.complete);
@@ -785,17 +760,8 @@
     frond(g, FR.warmB, -60, 300, 2 - 2 * sw, 0.58, { blur: 2.5 });
     frond(g, FR.deepB, 1150, 20, 156 - 2.5 * sw, 0.8, { blur: 1.2 });
 
-    // logo lands
-    const land = prog(t, T.logoLand - 0.18, 0.7);
-    const le = eOutExpo(land);
-    const lc = renderLogo(t, {
-      sway: 0.7, birdIn: 1, birdAmp: 0.7, arcP: 1, baseP: 1,
-      sweep: t > T.complete ? ((t - T.complete) % 3.0) / 1.2 - 0.15 : null,
-    });
-    const lpulse = 0.015 * beatPulse(t, 0.16, T.logoLand);
-    placeLogo(g, lc, L0.x, L0.y - 70 * (1 - le), L0.s * (1.35 - 0.35 * le) * (1 + lpulse), {
-      blur: 24 * (1 - le), alpha: clamp(land * 2.5), glow: 0.22 + 0.4 * (1 - le), shadow: 0.45,
-    });
+    // logo: already at its final place (it travels there through the portal)
+    if (!opt.noLogo) finalLogo(g, t);
     // tag pill
     const tp = prog(t, T.logoLand + 0.24, 0.45);
     tagPill(g, L0.x + (980 - LC.x) * L0.s, L0.y + (1010 - LC.y) * L0.s, tp > 0 ? backOut(tp, 2.2) * 1.0 : 0, -7, clamp(tp * 3));
@@ -890,37 +856,259 @@
     }
   }
 
-  // leaf sweep transition: big blurred fronds crossing the frame
-  // dir +1: right -> left, -1: left -> right. returns the wipe edge x (0..W)
-  function leafSweep(g, t, t0, dur, dir) {
+  function finalLogoState(t) {
+    return { x: FINAL.logo.x, y: FINAL.logo.y, s: FINAL.logo.s * (1 + 0.015 * beatPulse(t, 0.16, T.logoLand)) };
+  }
+  function finalLogo(g, t, arcAlpha = 1) {
+    const lc = renderLogo(t, {
+      sway: 0.7, birdIn: 1, birdAmp: 0.7, arcP: 1, baseP: 1, arcAlpha,
+      sweep: t > T.complete ? ((t - T.complete) % 3.0) / 1.2 - 0.15 : null,
+    });
+    const L = finalLogoState(t);
+    placeLogo(g, lc, L.x, L.y, L.s, { blur: 0, alpha: 1, glow: 0.22, shadow: 0.45 });
+  }
+
+  // ------------------------------------------------------------ v2 glance: the logo's sun becomes a portal
+  const ARC = { x: 573.6, y: 513.0, r: 276.7, a0: 176, a1: 283, w: 22 };   // logo arc (logo space, deg)
+  const PORTAL = {
+    cx: 580, cy: 1815, r: 475,         // the sun circle (rises in the lower half, behind the logo)
+    k: 0.9,                            // photo scale
+    face: { x: 636, y: 1412 },         // where the face anchor lands
+    plateDy: 60,                       // beach plate sits a bit lower (depth + sand line continuity)
+  };
+  const P0 = () => T.impact, P1 = () => T.final;
+
+  // hero logo placement (as in scene A after the groove) at time t
+  function heroLogoState(t) {
+    const push = 1 + 0.07 * eInOut(prog(t, 0, T.impact));
+    const beat = 0.03 * beatPulse(t, 0.16, T.groove);
+    return { x: 540, y: 905, s: 0.78 * (1 + beat) * push };
+  }
+  // logo travels from the hero spot to its final place on the impact
+  function portalLogoState(t) {
+    const k = eOutQuint(prog(t, P0(), 0.85));
+    const a = heroLogoState(t), b = finalLogoState(t);
+    return { x: lerp(a.x, b.x, k), y: lerp(a.y, b.y, k), s: lerp(a.s, b.s, k), k };
+  }
+  function arcOnScreen(L) {
+    return { x: L.x + (ARC.x - LC.x) * L.s, y: L.y + (ARC.y - LC.y) * L.s, r: ARC.r * L.s, w: ARC.w * L.s };
+  }
+  // ring morph state: m = 0 (logo arc) .. 1 (full sun circle)
+  function ringState(t) {
+    const p0 = P0(), p1 = P1();
+    let m, L = portalLogoState(t);
+    if (t < p1 - 0.02) m = eOutExpo(prog(t, p0, 0.6));
+    else m = 1 - eInOut(prog(t, p1 - 0.02, 0.47));
+    const A = arcOnScreen(L);
+    const pulse = beatPulse(t, 0.2, p0) * m;
+    const mid = (ARC.a0 + ARC.a1) / 2, half = (ARC.a1 - ARC.a0) / 2;
+    return {
+      m, L,
+      x: lerp(A.x, PORTAL.cx, m), y: lerp(A.y, PORTAL.cy, m),
+      r: lerp(A.r, PORTAL.r, m) * (1 + 0.014 * pulse),
+      w: lerp(A.w, 10, m),
+      a0: (mid - lerp(half, 180, m)) * DEG, a1: (mid + lerp(half, 180, m)) * DEG,
+      pulse,
+    };
+  }
+
+  function sunRing(g, R, t, alpha) {
+    if (alpha <= 0) return;
+    const full = R.m > 0.999;
+    g.save();
+    g.globalAlpha = alpha;
+    g.lineCap = "round";
+    // bloom
+    g.globalCompositeOperation = "screen";
+    g.filter = `blur(${(18 + 14 * R.pulse).toFixed(1)}px)`;
+    g.strokeStyle = `rgba(255,214,120,${0.85})`;
+    g.lineWidth = R.w * 3.2;
+    g.beginPath(); g.arc(R.x, R.y, R.r, R.a0, R.a1); g.stroke();
+    g.filter = "none";
+    g.globalCompositeOperation = "source-over";
+    // core ring
+    g.shadowColor = "rgba(255,190,80,0.9)";
+    g.shadowBlur = 22 + 18 * R.pulse;
+    g.strokeStyle = "#fff8e6";
+    g.lineWidth = R.w;
+    g.beginPath(); g.arc(R.x, R.y, R.r, R.a0, R.a1); g.stroke();
+    g.shadowColor = "transparent";
+    // outer tick ring (sun "crown"), rotating, pulsing on the beat
+    if (R.m > 0.6) {
+      const ta = clamp((R.m - 0.6) / 0.4) * (0.65 + 0.35 * R.pulse);
+      const n = 96, r0 = R.r + 22, rot = t * 0.25;
+      g.globalAlpha = alpha * ta;
+      g.strokeStyle = "#ffe7b0";
+      g.lineWidth = 3;
+      g.beginPath();
+      for (let i = 0; i < n; i++) {
+        const a = rot + (i / n) * Math.PI * 2;
+        const len = (i % 4 === 0 ? 20 : 9) * (1 + 0.6 * R.pulse);
+        g.moveTo(R.x + Math.cos(a) * r0, R.y + Math.sin(a) * r0);
+        g.lineTo(R.x + Math.cos(a) * (r0 + len), R.y + Math.sin(a) * (r0 + len));
+      }
+      g.stroke();
+    }
+    g.restore();
+  }
+
+  // woman photo transform (rigid only): rise in, boat-like sway, push-in, exit slide
+  function womanXform(t) {
+    const p0 = P0(), p1 = P1(), lt = t - p0;
+    const enter = eOutExpo(prog(t, p0 + 0.1, 0.55));
+    const push = 1 + 0.05 * eInOut(prog(t, p0, p1 - p0));
+    const drift = -14 * eInOut(prog(t, p0, p1 - p0));          // slow upward camera drift
+    const rot = 1.5 * Math.sin(lt * 2 * Math.PI / 2.4 + 0.4);
+    const dy = 10 * Math.sin(lt * 2 * Math.PI / 2.4 + 2.0);
+    const ex = eInCubic(prog(t, p1 - 0.06, 0.24));               // fast exit to the right
+    return {
+      x: PORTAL.face.x + 1500 * ex, y: PORTAL.face.y + 220 * (1 - enter) + dy + drift * 1.35,
+      rot: rot * (1 - ex) + 6 * ex, s: PORTAL.k * push, enter, ex, drift, push,
+      alpha: clamp(prog(t, p0 + 0.1, 0.22)),
+      blur: 16 * (1 - eOutCubic(prog(t, p0 + 0.1, 0.5))),
+    };
+  }
+
+  function drawWomanCut(g, X, extraDx = 0, alpha = 1) {
+    const Wm = window.WOMAN;
+    g.save();
+    g.globalAlpha = alpha;
+    g.translate(X.x + extraDx, X.y);
+    g.rotate(X.rot * DEG);
+    g.scale(X.s, X.s);
+    g.translate(-Wm.face[0], -Wm.face[1]);
+    if (X.blur > 0.4) g.filter = `blur(${(X.blur / X.s).toFixed(1)}px)`;
+    g.shadowColor = "rgba(90,30,0,0.35)";
+    g.shadowBlur = 30;
+    g.shadowOffsetY = 12;
+    g.drawImage(IMG.wcut, Wm.cut.x, Wm.cut.y);
+    g.restore();
+  }
+
+  function drawPortal(g, t) {
+    const R = ringState(t);
+    const p0 = P0(), p1 = P1();
+    const X = womanXform(t);
+    // flash + sun rays behind the circle, reacting to the beats
+    const on = clamp(R.m * 1.4) * (1 - eInCubic(prog(t, p1, 0.4)));
+    rays(g, t, R.x, R.y, 1.0 * (0.4 + 0.6 * R.m), on * 0.9);
+    const flash = Math.exp(-Math.max(0, t - p0) / 0.25) * (t >= p0 ? 1 : 0);
+    if (flash > 0.01) {
+      g.save();
+      g.globalCompositeOperation = "screen";
+      const fg = g.createRadialGradient(R.x, R.y, 0, R.x, R.y, 900);
+      fg.addColorStop(0, `rgba(255,236,190,${0.8 * flash})`);
+      fg.addColorStop(1, "rgba(255,180,80,0)");
+      g.fillStyle = fg;
+      g.fillRect(0, 0, W, H);
+      g.restore();
+    }
+    // inside the circle: the beach of her own photo, defocused -> sharp, warm
+    const plateA = clamp(prog(t, p0 + 0.05, 0.25)) * (1 - clamp(prog(t, p1 - 0.02, 0.25)));
+    if (plateA > 0 && R.r > 4) {
+      const Wm = window.WOMAN;
+      g.save();
+      g.beginPath(); g.arc(R.x, R.y, R.r - R.w * 0.3, 0, Math.PI * 2); g.clip();
+      g.fillStyle = "#f4b070";
+      g.globalAlpha = plateA;
+      g.fillRect(R.x - R.r, R.y - R.r, R.r * 2, R.r * 2);
+      const pf = eOutCubic(prog(t, p0 + 0.05, 0.6));
+      g.translate(PORTAL.face.x + (R.x - PORTAL.cx), PORTAL.face.y + PORTAL.plateDy + X.drift + (R.y - PORTAL.cy));
+      const ps = PORTAL.k * X.push * (1 + 0.12 * (1 - pf)) * (R.r / PORTAL.r);
+      g.scale(ps, ps);
+      g.translate(-Wm.face[0], -Wm.face[1]);
+      if (pf < 1) g.filter = `blur(${(22 * (1 - pf) / ps).toFixed(1)}px)`;
+      g.drawImage(IMG.wplate, 0, 0);
+      g.restore();
+      // warm falloff towards the rim: depth, and she pops off the bright sand
+      g.save();
+      g.globalAlpha = plateA;
+      g.beginPath(); g.arc(R.x, R.y, R.r, 0, Math.PI * 2); g.clip();
+      const vg = g.createRadialGradient(R.x, R.y - R.r * 0.25, R.r * 0.35, R.x, R.y, R.r);
+      vg.addColorStop(0, "rgba(214,90,20,0)");
+      vg.addColorStop(1, "rgba(214,90,20,0.38)");
+      g.fillStyle = vg;
+      g.fillRect(R.x - R.r, R.y - R.r, R.r * 2, R.r * 2);
+      g.restore();
+    }
+    sunRing(g, R, t, clamp(R.m * 6) * (R.m < 1 && t > p1 ? 1 - eInCubic(prog(t, p1 + 0.35, 0.12)) : 1));
+    // the woman: above the circle so arm, hand and cap break its edge;
+    // below the circle centre she stays inside it
+    if (X.alpha > 0 && X.ex < 1) {
+      g.save();
+      if (X.ex <= 0) {
+        g.beginPath();
+        g.rect(0, 0, W, R.y);
+        g.arc(R.x, R.y, R.r, 0, Math.PI * 2);
+        g.clip();
+      }
+      // motion-blur trail on the exit
+      if (X.ex > 0) {
+        for (let i = 7; i >= 1; i--) drawWomanCut(g, { ...X, blur: 8 + 12 * X.ex }, -i * 32 * X.ex, 0.13 * X.alpha);
+      }
+      drawWomanCut(g, { ...X, blur: X.blur + 12 * X.ex }, 0, X.alpha * (1 - 0.6 * X.ex));
+      g.restore();
+    }
+  }
+
+  // logo during the portal: travels to its final place; its arc hands over to the ring
+  function portalLogo(g, t) {
+    const p0 = P0(), p1 = P1();
+    const L = portalLogoState(t);
+    const k = L.k;
+    const R = ringState(t);
+    // arc visible before the morph and again once the ring has folded back into it
+    let arcAlpha = 1 - clamp(prog(t, p0, 0.08));
+    if (t > p1) arcAlpha = clamp(prog(t, p1 + 0.35, 0.12));
+    const lc = renderLogo(t, {
+      sway: lerp(1 + 0.25 * band("energy", t), 0.7, k), birdIn: 1, birdAmp: lerp(1, 0.7, k),
+      arcP: 1, baseP: 1, arcAlpha, sweep: null,
+    });
+    const hero = 1 - k;
+    placeLogo(g, lc, L.x, L.y, L.s, {
+      blur: 0, alpha: 1, glow: lerp(0.32 + 0.25 * beatPulse(t, 0.18, T.groove), 0.22, k), shadow: lerp(0.35, 0.45, k),
+    });
+    // the "11ª EDIÇÃO" tag leaves with the hero logo (it pops again in the final layout)
+    const tf = 1 - eOutCubic(prog(t, p0, 0.3));
+    if (tf > 0) tagPill(g, L.x + (980 - LC.x) * L.s, L.y + (1010 - LC.y) * L.s, L.s / 0.78 * 1.05 * (0.6 + 0.4 * tf), -7, tf * hero);
+  }
+
+  // lighter leaf sweep: fronds near the top and bottom edges + streaks, so the
+  // portal stays readable while the foreground still sweeps
+  function leafSweepLight(g, t, t0, dur, dir) {
     const p = prog(t, t0, dur);
     if (p <= 0 || p >= 1) return;
     const e = eInOut(p);
-    const xs = dir > 0 ? lerp(W + 700, -900, e) : lerp(-700, W + 900, e);
-    const off = [[0, -300, 1.9, 34], [180, 520, 2.3, 30], [-120, 1350, 2.1, 36], [80, 2050, 1.8, 30]];
-    for (const [dx, y, sc, rot] of off) {
-      for (let k = 0; k < 3; k++) {     // motion trail
-        const tx = xs + dx * dir + k * 70 * dir;
-        frond(g, k ? FR.deepC : FR.warmC, tx, y, dir > 0 ? 180 + rot : rot, sc, { blur: 18 + k * 10, alpha: k ? 0.35 : 1, flip: false });
+    const xs = dir > 0 ? lerp(W + 900, -1100, e) : lerp(-900, W + 1100, e);
+    const off = [[0, -240, 1.7, 26], [-160, 2080, 1.8, 30], [220, 1150, 1.25, 18]];
+    off.forEach(([dx, y, sc, rot], j) => {
+      for (let k = 0; k < 3; k++) {
+        const tx = xs + dx * dir + k * 80 * dir;
+        frond(g, k ? FR.deepC : FR.warmC, tx, y, dir > 0 ? 180 + rot : rot, sc, { blur: (j === 2 ? 28 : 20) + k * 10, alpha: (k ? 0.3 : 0.95) * (j === 2 ? 0.75 : 1) });
       }
-    }
-    // orange streak brushes riding with the sweep
-    brush(g, IMG.brushStreak, xs + 200 * dir, 760, 1400, 70, -14, 1, 0.85);
-    brush(g, IMG.brushStreak, xs - 100 * dir, 1180, 1200, 60, -14, 1, 0.7);
+    });
+    brush(g, IMG.brushStreak, xs + 200 * dir, 760, 1400, 70, -14, 1, 0.8);
+    brush(g, IMG.brushStreak, xs - 100 * dir, 1540, 1200, 60, -14, 1, 0.65);
   }
 
-  // diagonal wipe clip whose edge follows the sweep
-  function wipeClip(g, t, t0, dur, dir) {
+  // soft diagonal wipe: draws src canvas over g, revealed left -> right
+  let finC = null, finG = null;
+  function softWipe(g, src, t, t0, dur) {
     const e = eInOut(prog(t, t0, dur));
-    const edge = dir > 0 ? lerp(W + 500, -500, e) : lerp(-500, W + 500, e);
-    g.beginPath();
-    if (dir > 0) {
-      g.moveTo(edge + 260, -10); g.lineTo(W + 10, -10); g.lineTo(W + 10, H + 10); g.lineTo(edge - 260, H + 10);
-    } else {
-      g.moveTo(-10, -10); g.lineTo(edge + 260, -10); g.lineTo(edge - 260, H + 10); g.lineTo(-10, H + 10);
-    }
-    g.closePath();
-    g.clip();
+    if (e <= 0) return;
+    if (e >= 1) { g.drawImage(src, 0, 0); return; }
+    const edge = lerp(-700, W + 700, e);
+    finG.save();
+    finG.globalCompositeOperation = "destination-in";
+    const gr = finG.createLinearGradient(edge - 330, 380, edge + 330, -380 + 0);
+    gr.addColorStop(0, "rgba(0,0,0,1)");
+    gr.addColorStop(1, "rgba(0,0,0,0)");
+    // gradient axis tilted like the old wipe (edge leans right at the top)
+    finG.setTransform(1, 0, -0.27, 1, 0.27 * 960, 0);
+    finG.fillStyle = gr;
+    finG.fillRect(-2000, -100, W + 4000, H + 200);
+    finG.restore();
+    g.drawImage(src, 0, 0);
   }
 
   // ------------------------------------------------------------ frame
@@ -929,21 +1117,25 @@
     const g = ctx;
     g.save();
     g.clearRect(0, 0, W, H);
-    // transitions (sweep window)
-    const s1 = T.impact - 0.24, s1d = 0.62;   // leaves cross the logo, wipe to woman
-    const s2 = T.final - 0.30, s2d = 0.66;    // leaves sweep to the final composition
-    if (t < s1) {
+    const s1 = T.impact - 0.24, s1d = 0.62;   // trigger sweep (leaves cross the logo)
+    const s2 = T.final - 0.30, s2d = 0.66;    // sweep to the final composition
+    const pEnd = T.final + 0.5;               // ring folded back into the logo arc
+    if (t < T.impact) {
       sceneLogo(g, t);
-    } else if (t < s1 + s1d) {
-      sceneLogo(g, Math.min(t, T.impact + 0.05));
-      g.save(); wipeClip(g, t, s1, s1d, 1); sceneWoman(g, Math.max(t, T.impact)); g.restore();
-      leafSweep(g, t, s1 - 0.12, s1d + 0.2, 1);
-    } else if (t < s2) {
-      sceneWoman(g, t);
-    } else if (t < s2 + s2d) {
-      sceneWoman(g, t);
-      g.save(); wipeClip(g, t, s2, s2d, -1); sceneFinal(g, Math.max(t, T.final)); g.restore();
-      leafSweep(g, t, s2 - 0.12, s2d + 0.2, -1);
+      if (t >= s1) leafSweepLight(g, t, s1 - 0.12, s1d + 0.2, 1);
+    } else if (t < pEnd) {
+      // background: solar plate, then the final layout wiping in softly
+      sceneLogo(g, t, { bg: true });
+      if (t >= s2) {
+        finG.setTransform(1, 0, 0, 1, 0, 0);
+        finG.clearRect(0, 0, W, H);
+        sceneFinal(finG, Math.max(t, T.final), { noLogo: true });
+        softWipe(g, finC, t, s2, s2d);
+      }
+      drawPortal(g, t);
+      portalLogo(g, t);
+      if (t < s1 + s1d + 0.2) leafSweepLight(g, t, s1 - 0.12, s1d + 0.2, 1);
+      if (t >= s2) leafSweepLight(g, t, s2 - 0.12, s2d + 0.2, -1);
     } else {
       sceneFinal(g, t);
     }
@@ -960,7 +1152,7 @@
   async function init() {
     const list = {
       sky: L + M.sky, sand: L + M.sand, photo: L + M.photo, waves: L + M.waves,
-      woman: "assets/layers/" + M.woman,
+      wcut: L + window.WOMAN.cut.src, wplate: L + window.WOMAN.plate,
       bBig: L + M.brush.big, bBand: L + M.brush.band, bUnder: L + M.brush.under, bStreak: L + M.brush.streak,
     };
     for (const k in P) list[k] = L + P[k].src;
@@ -997,6 +1189,7 @@
     letC = mk(LW, LH); letG = letC.getContext("2d");
     tmpC = mk(LW, LH); tmpG = tmpC.getContext("2d");
     initPalm();
+    finC = mk(W, H); finG = finC.getContext("2d");
   }
 
   window.renderFrame = renderFrame;
