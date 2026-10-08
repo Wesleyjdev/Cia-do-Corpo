@@ -23,3 +23,15 @@ Prévia ao vivo: sirva `project/` por HTTP (`npx http-server project`) e abra
   mulher (`sceneWoman`) mudou em relação à v1, transições e demais cenas são as aprovadas.
 - Textos, tempos (`T` em `js/main.js`, presos às batidas reais) e layout final (`FINAL`) ficam no topo do `main.js`.
 - Música: 125,1 BPM; groove em 2,71 s; maior impacto em 6,55 s; final em 8,46 s; última batida em 14,22 s.
+
+## Reel com fala (IMG_1688.MOV), 26 s
+
+```bash
+python3 reel/tools/reel_prep.py            # frames SDR do bruto + EDL + mix de áudio (voz/música)
+node tools/render.mjs --page project/reel.html --workers 4 --out output/reel_frames
+tools/mux.sh output/reel_frames reel/work/mix.wav output/sabadao-funcional-reel-fala.mp4 30 18
+```
+
+Fontes (fora do git): `project/assets/src/IMG_1688.MOV` e `project/assets/src/toca_o_trompete.mp3`.
+Cortes, transições, legendas, destaques e chips ficam no topo de `project/js/reel.js`;
+os trechos de fala, em `SEGMENTS` no `reel_prep.py`. A arte final é a do vídeo de 15 s (`window.SF`).
