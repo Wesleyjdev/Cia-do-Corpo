@@ -22,7 +22,8 @@
     orangeTag: "#c74300",   // tag text: 4.9:1 on the white pill
     leafDeep: "#b3320a",    // reddish orange of the leaves
     leafTip: "#ef5a10",
-    burnt: "112,28,6",       // support bands behind text (rgb)
+    burnt: "196,62,8",       // vivid burnt orange behind text (white = 5.2:1)
+    bandEdge: "236,90,12",   // brighter orange at the band ends
     sky: M.colors.sky_low,
     sand: M.colors.sand,
     white: "#ffffff",
@@ -810,23 +811,12 @@
       g.restore();
     }
 
-    // ---- slogan on a burnt brush band
+    // ---- slogan on a burnt-orange brush band
     const sp1 = prog(t, T.slogan - 0.12, 0.45);
-    brush(g, IMG.brushBand, 540, (FINAL.slogan.y1 + FINAL.slogan.y2) / 2 - 22, 1060, 250, -2.5, sp1, 1);
+    brush(g, IMG.brushBand, 540, (FINAL.slogan.y1 + FINAL.slogan.y2) / 2 - 28, 1070, 290, -2.5, sp1, 1);
     revealText(g, "A PRAIA É O PALCO.", 540, FINAL.slogan.y1, "68px Knewave", prog(t, T.slogan, 0.5), { align: "center", skew: -8 });
     revealText(g, "VOCÊ É A ENERGIA!", 540, FINAL.slogan.y2, "80px Knewave", prog(t, T.slogan + 0.14, 0.5), { align: "center", skew: -8 });
     brush(g, IMG.brushUnder, 548, FINAL.slogan.y2 + 22, 640, 30, -2.5, prog(t, T.slogan + 0.32, 0.4), 1);
-
-    // bottom fronds + wave lines (decorative zone below the info)
-    g.save();
-    g.globalAlpha = 0.5;
-    g.drawImage(IMG.waves, -40, 1745, IMG.waves.width * 0.95, IMG.waves.height * 0.95);
-    g.restore();
-    const bIn = eOutCubic(prog(t, T.final + 0.2, 0.9));
-    frond(g, FR.warmA, -140 - 200 * (1 - bIn), 2010, -24 + 2 * sw, 0.95, { blur: 1.5 });
-    frond(g, FR.deepA, 1240 + 200 * (1 - bIn), 2030, 204 - 2 * sw, 1.0, { blur: 1.5 });
-    brush(g, IMG.brushStreak, 300, 1880, 760, 60, -14, prog(t, T.final + 0.4, 0.5), 0.9);
-    brush(g, IMG.brushStreak, 860, 1690, 520, 44, -14, prog(t, T.final + 0.55, 0.5), 0.8);
 
     // ---- info panel (burnt gradient) + bottom decoration
     const ip = eOutCubic(prog(t, T.date - 0.2, 0.5));
@@ -834,13 +824,24 @@
       const top = 1395 + 60 * (1 - ip);
       const gr = g.createLinearGradient(0, top, 0, H);
       gr.addColorStop(0, `rgba(${C.burnt},0)`);
-      gr.addColorStop(0.07, `rgba(${C.burnt},${0.88 * ip})`);
-      gr.addColorStop(0.5, `rgba(${C.burnt},${0.88 * ip})`);
-      gr.addColorStop(0.75, `rgba(${C.burnt},${0.6 * ip})`);
-      gr.addColorStop(1, `rgba(${C.burnt},${0.25 * ip})`);
+      gr.addColorStop(0.07, `rgba(${C.burnt},${0.95 * ip})`);
+      gr.addColorStop(0.42, `rgba(${C.burnt},${0.95 * ip})`);
+      gr.addColorStop(0.7, `rgba(${C.bandEdge},${0.95 * ip})`);
+      gr.addColorStop(1, `rgba(255,140,30,${0.9 * ip})`);
       g.fillStyle = gr;
       g.fillRect(0, top, W, H - top);
     }
+    // bottom fronds + wave lines (decorative zone below the info)
+    g.save();
+    g.globalAlpha = 0.7;
+    g.drawImage(IMG.waves, -40, 1745, IMG.waves.width * 0.95, IMG.waves.height * 0.95);
+    g.restore();
+    const bIn = eOutCubic(prog(t, T.final + 0.2, 0.9));
+    frond(g, FR.warmB, -140 - 200 * (1 - bIn), 2030, -24 + 2 * sw, 1.2, { blur: 1.5 });
+    frond(g, FR.warmB, 1220 + 200 * (1 - bIn), 2040, 202 - 2 * sw, 1.25, { blur: 1.5 });
+    brush(g, IMG.brushStreak, 300, 1880, 760, 60, -14, prog(t, T.final + 0.4, 0.5), 0.9);
+    brush(g, IMG.brushStreak, 860, 1690, 520, 44, -14, prog(t, T.final + 0.55, 0.5), 0.8);
+
     // date + local, each on its beat, as one centred column
     g.font = "800 48px Montserrat";
     const dTxt = "24 DE OUTUBRO ÀS 07H";
@@ -949,7 +950,7 @@
     // gentle vignette for depth
     const vg = g.createRadialGradient(540, 900, 600, 540, 960, 1300);
     vg.addColorStop(0, "rgba(60,15,0,0)");
-    vg.addColorStop(1, "rgba(60,15,0,0.28)");
+    vg.addColorStop(1, "rgba(60,15,0,0.16)");
     g.fillStyle = vg;
     g.fillRect(0, 0, W, H);
     g.restore();
@@ -972,8 +973,15 @@
       return gr;
     });
     IMG.brushBigLt = tint(IMG.bBig, "#ff9a3c");
-    IMG.brushBand = tint(IMG.bBand, `rgba(${C.burnt},0.88)`);
-    IMG.brushUnder = tint(IMG.bUnder, "#ff6a0d");
+    IMG.brushBand = tint(IMG.bBand, (g, w) => {
+      const gr = g.createLinearGradient(0, 0, w, 0);
+      gr.addColorStop(0, `rgba(${C.bandEdge},0.96)`);
+      gr.addColorStop(0.2, `rgba(${C.burnt},0.97)`);
+      gr.addColorStop(0.8, `rgba(${C.burnt},0.97)`);
+      gr.addColorStop(1, `rgba(${C.bandEdge},0.96)`);
+      return gr;
+    });
+    IMG.brushUnder = tint(IMG.bUnder, "#ffc04a");
     IMG.brushStreak = tint(IMG.bStreak, (g, w, h) => {
       const gr = g.createLinearGradient(0, 0, w, 0);
       gr.addColorStop(0, "rgba(255,120,20,0)"); gr.addColorStop(0.3, "#ff7a14"); gr.addColorStop(1, "#ffb347");
