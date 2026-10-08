@@ -1,0 +1,16 @@
+SABADAO FUNCIONAL - ASSETS .MOV COM TRANSPARENCIA (Windows)
+
+1. Extraia este ZIP numa pasta.
+2. De dois cliques em JUNTAR_MOV.bat.
+3. Os 3 arquivos .mov aparecem na mesma pasta:
+     sabadao_logo_animado_laranja_1500.mov   (1500x1500)
+     sabadao_logo_animado_branco_1500.mov    (1500x1500)
+     sabadao_folhas_rodape_1080x1920.mov     (1080x1920)
+   Depois pode apagar a pasta "partes".
+
+30 s, 30 fps, loop perfeito, canal alfa (transparencia), sem perdas.
+Logos: QuickTime Animation. Folhas: PNG em QuickTime.
+
+Conferir (opcional), no Prompt de Comando:
+  certutil -hashfile sabadao_logo_animado_laranja_1500.mov SHA256
+e compare com SHA256.txt.
