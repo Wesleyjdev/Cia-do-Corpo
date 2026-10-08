@@ -7,3 +7,8 @@ project/reel_src/
 reel/work/
 output/reel_kf/
 output/reel_frames/
+output/loop_assets/png_*/
+output/loop_assets/*.mov
+output/loop_assets/*_png.zip
+output/loop_assets/*_alfa_exato.webm
+output/loop_assets/checker_*.png

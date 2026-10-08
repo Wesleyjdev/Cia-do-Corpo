@@ -186,6 +186,19 @@
     g.restore();
   }
 
+  // ------------------------------------------------------------ motion periods
+  // original values; window.SF_LOOP (e.g. 30) snaps each period to the
+  // nearest exact divisor of the loop so the last frame meets the first
+  const MOT = (() => {
+    const L = window.SF_LOOP;
+    const snapP = p => (L ? L / Math.max(1, Math.round(L / p)) : p);          // period (s)
+    const snapW = w => 2 * Math.PI / snapP(2 * Math.PI / w);                 // angular freq (rad/s)
+    return {
+      wind: snapP(2.7), gust: snapP(1.13), flutter: snapP(1.05),
+      b1: snapW(0.95), b2: snapW(2.1), b3: snapW(1.6), flapHz: 1 / snapP(1 / 2.6), brot: snapW(1.3),
+    };
+  })();
+
   // ------------------------------------------------------------ palm warp
   // per-pixel displacement of the logo palm: rotation that grows with height
   // above the trunk anchor (trunk almost rigid, hill rigid) + leaf flutter
@@ -225,10 +238,10 @@
   }
   function warpPalm(t, amp = 1) {
     const p = PW, d = p.id.data;
-    const wind = 0.75 * Math.sin(t * 2 * Math.PI / 2.7) + 0.25 * Math.sin(t * 2 * Math.PI / 1.13 + 1.1);
+    const wind = 0.75 * Math.sin(t * 2 * Math.PI / MOT.wind) + 0.25 * Math.sin(t * 2 * Math.PI / MOT.gust + 1.1);
     const a = 3.0 * DEG * wind * amp;            // up to ~3 deg at the crown
     const fa = 9 * amp;                           // leaf tip flutter (px)
-    const w1 = t * 2 * Math.PI / 1.05;
+    const w1 = t * 2 * Math.PI / MOT.flutter;
     for (let Y = 0, i = 0; Y < p.h; Y++) {
       for (let X = 0; X < p.w; X++, i++) {
         const x = X - p.m, y = Y - p.m;
@@ -313,9 +326,9 @@
       let ox = u * u * sx + 2 * u * e * cx;
       let oy = u * u * sy + 2 * u * e * cy;
       const amp = o.birdAmp;
-      ox += amp * (16 * Math.sin(t * 0.95 + b.ph) + 7 * Math.sin(t * 2.1 + b.ph * 2));
-      oy += amp * (9 * Math.sin(t * 1.6 + b.ph * 1.3));
-      const flap = Math.sin(t * 2 * Math.PI * 2.6 + b.ph * 2.2);
+      ox += amp * (16 * Math.sin(t * MOT.b1 + b.ph) + 7 * Math.sin(t * MOT.b2 + b.ph * 2));
+      oy += amp * (9 * Math.sin(t * MOT.b3 + b.ph * 1.3));
+      const flap = Math.sin(t * 2 * Math.PI * MOT.flapHz + b.ph * 2.2);
       const sY = 0.62 + 0.42 * flap;     // wings up (1.04) <-> down (0.2)
       const sX = 0.96 - 0.06 * flap;
       const bxc = p.x + p.w / 2 + LOX + ox, byc = p.y + p.h * 0.78 + LOY + oy;
@@ -324,7 +337,7 @@
       g.save();
       g.globalAlpha = al;
       g.translate(bxc, byc);
-      g.rotate((b.from[0] < 0 ? 1 : -1) * (1 - e) * 14 * DEG + Math.sin(t * 1.3 + b.ph) * 4 * DEG);
+      g.rotate((b.from[0] < 0 ? 1 : -1) * (1 - e) * 14 * DEG + Math.sin(t * MOT.brot + b.ph) * 4 * DEG);
       g.scale(sX, sY);
       g.drawImage(IMG[b.k], -p.w / 2, -p.h * 0.78);
       g.restore();
@@ -1212,7 +1225,7 @@
   // read-only access for other compositions (reel.html) to the same
   // logo, fronds, leaf waves and final layout; the 15 s render is unaffected
   window.SF = {
-    sceneFinal, renderLogo, placeLogo, frond, FR, leafWave, rays, particles, brush,
+    sceneFinal, renderLogo, placeLogo, frond, FR, leafWave, MOT, rays, particles, brush,
     roundRect, calendarIcon, pinIcon, IMG, C, LC, LOX, LOY, T, FINAL,
     ease: { clamp, lerp, prog, eOutCubic, eOutQuint, eOutExpo, eInCubic, eInOut, backOut, smooth },
   };

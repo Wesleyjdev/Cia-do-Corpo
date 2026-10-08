@@ -35,3 +35,14 @@ tools/mux.sh output/reel_frames reel/work/mix.wav output/sabadao-funcional-reel-
 Fontes (fora do git): `project/assets/src/IMG_1688.MOV` e `project/assets/src/toca_o_trompete.mp3`.
 Cortes, transições, legendas, destaques e chips ficam no topo de `project/js/reel.js`;
 os trechos de fala, em `SEGMENTS` no `reel_prep.py`. A arte final é a do vídeo de 15 s (`window.SF`).
+
+## Assets em loop com alfa (30 s, loop perfeito)
+
+```bash
+for a in logo_orange logo_white leaves; do
+  node tools/render.mjs --page project/loop_assets.html --workers 4 --out output/loop_assets/png_$a --from 0 --to 899 --query asset=$a
+done
+```
+`window.SF_LOOP = 30` (em `loop_assets.html`) ajusta cada período de movimento ao divisor exato de 30 s mais próximo;
+sem ele, `main.js` usa os períodos originais (vídeos aprovados inalterados). Codificação: ProRes 4444
+(`prores_ks -profile:v 4 -pix_fmt yuva444p10le`), WebM VP9 `yuva420p` (leve, crf 26, e `_alfa_exato`, lossless) e PNG.
