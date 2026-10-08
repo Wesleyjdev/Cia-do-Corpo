@@ -1,0 +1,12 @@
+Como juntar as partes (cada ZIP foi dividido em pedaços de 29 MB)
+
+Coloque todas as partes de um mesmo arquivo na mesma pasta e:
+
+- 7-Zip (Windows) ou The Unarchiver/Keka (Mac): abra o arquivo .001; ele lê as demais partes sozinho.
+- Mac / Linux (Terminal):
+    cat sabadao_logo_animado_laranja_1500_png.zip.* > sabadao_logo_animado_laranja_1500_png.zip
+- Windows (Prompt de Comando):
+    copy /b sabadao_logo_animado_laranja_1500_png.zip.001 + sabadao_logo_animado_laranja_1500_png.zip.002 + ... sabadao_logo_animado_laranja_1500_png.zip
+
+Partes: folhas = 12 (.001 a .012), logo branco = 12 (.001 a .012), logo laranja = 23 (.001 a .023).
+Conferência opcional: o SHA-256 de cada ZIP completo está em SHA256_zips_completos.txt.
