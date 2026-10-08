@@ -1,0 +1,24 @@
+COMO JUNTAR OS .MOV (logo laranja, logo branco, folhas do rodape)
+
+Cada .mov foi dividido em pedacos de 29 MB (.001, .002, ...).
+Baixe TODOS os pedacos de um arquivo para a mesma pasta e junte:
+
+Mac / Linux (Terminal, dentro da pasta):
+  cat sabadao_logo_animado_laranja_1500.mov.* > sabadao_logo_animado_laranja_1500.mov
+  cat sabadao_logo_animado_branco_1500.mov.*  > sabadao_logo_animado_branco_1500.mov
+  cat sabadao_folhas_rodape_1080x1920.mov.*   > sabadao_folhas_rodape_1080x1920.mov
+
+Windows (Prompt de Comando, dentro da pasta):
+  copy /b sabadao_logo_animado_laranja_1500.mov.001+sabadao_logo_animado_laranja_1500.mov.002+... sabadao_logo_animado_laranja_1500.mov
+  (mais facil: 7-Zip -> clique direito no .001 -> 7-Zip -> "Combine files...")
+
+Conferir (opcional): os hashes estao em SHA256_mov_completos.txt
+  Mac: shasum -a 256 *.mov    Linux: sha256sum *.mov
+  Windows: certutil -hashfile ARQUIVO.mov SHA256
+
+FORMATO
+  30 s, 30 fps, 900 frames, loop perfeito (frame 900 = frame 0), alfa direto.
+  Logos (1500x1500): QuickTime Animation (qtrle), RGBA 8 bits, sem perdas.
+  Folhas (1080x1920): PNG em .mov, RGBA 8 bits, sem perdas.
+  Identicos bit a bit aos PNGs renderizados. Abrem no Premiere, After Effects,
+  DaVinci Resolve e Final Cut com transparencia.
