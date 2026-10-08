@@ -29,7 +29,7 @@ Prévia ao vivo: sirva `project/` por HTTP (`npx http-server project`) e abra
 ```bash
 python3 reel/tools/reel_prep.py            # frames SDR do bruto + EDL + mix de áudio (voz/música)
 node tools/render.mjs --page project/reel.html --workers 4 --out output/reel_frames
-tools/mux.sh output/reel_frames reel/work/mix.wav output/sabadao-funcional-reel-fala.mp4 30 18
+tools/mux.sh output/reel_frames reel/work/mix.wav output/sabadao-funcional-reel-fala-v2.mp4 30 18
 ```
 
 Fontes (fora do git): `project/assets/src/IMG_1688.MOV` e `project/assets/src/toca_o_trompete.mp3`.

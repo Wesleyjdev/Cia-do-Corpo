@@ -1,0 +1,24 @@
+timestamp_s,evento,som,pico_no_master_dBFS,nota
+2.88,whip pan,sintetizado,-28.4,whoosh curto, pan segue o movimento
+4.26,destaque de palavra,sintetizado,-28.3,micro-tick
+4.27,swell (punch-in),sintetizado,-28.3,zoom de enfase ate 110%
+4.54,chip entra: 24 DE OUTUBRO,sintetizado,-31.4,pop suave
+5.37,chip entra: ÀS 07H,sintetizado,-31.4,pop suave
+6.65,chip sai: 24 DE OUTUBRO,sintetizado,-30.4,tick leve
+6.65,chip sai: ÀS 07H,sintetizado,-30.4,tick leve
+7.41,folhas (cobertura),sintetizado,-25.4,whoosh de folhagem, pico na tela 100% coberta
+7.75,destaque de palavra,sintetizado,-38.3,micro-tick
+9.70,chip entra: PRAIA DE CASA CAIADA,sintetizado,-31.4,pop suave
+10.67,chip entra: EM FRENTE AO QUARTEL,sintetizado,-31.4,pop suave
+10.86,destaque de palavra,sintetizado,-38.4,micro-tick
+11.14,whip pan,sintetizado,-28.4,whoosh curto, pan segue o movimento
+12.04,chip sai: EM FRENTE AO QUARTEL,sintetizado,-30.4,tick leve
+12.04,chip sai: PRAIA DE CASA CAIADA,sintetizado,-30.4,tick leve
+14.94,destaque de palavra,sintetizado,-30.6,micro-tick
+14.95,swell (punch-in),sintetizado,-30.6,zoom de enfase ate 110%
+18.02,whip pan,sintetizado,-28.4,whoosh curto, pan segue o movimento
+19.32,destaque de palavra,sintetizado,-36.1,micro-tick
+19.89,riser,sintetizado,-21.7,sobe 1 s ate a cobertura
+19.92,folhas (cobertura final),sintetizado,-21.7,pico na cobertura total
+20.05,impacto grave,sintetizado,-15.6,sub hit na revelacao da arte
+20.36,brilho do logo,sintetizado,-25.4,quando o logo aterrissa

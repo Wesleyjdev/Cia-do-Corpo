@@ -31,37 +31,51 @@
   // ------------------------------------------------------------ edit (EDL)
   const SEG = R.segments;                 // audio/video segments (from reel_prep.py)
   const FACE = { ele: [480, 560], ela: [520, 760], dois: [560, 900] };
-  // framing cuts: [t, zoom]; jump cuts snapped to the beat grid
-  const FRAMING = [
-    [0.00, 1.00], [2.70, 1.15], [3.751, 1.00], [5.19, 1.15], [6.07, 1.00],
-    [7.04, 1.00], [8.548, 1.15], [9.86, 1.00], [10.52, 1.15], [11.906, 1.00],
-    [13.825, 1.15], [16.223, 1.00], [17.26, 1.00],
-  ];
-  // transitions between people (and to the final art)
-  const TR = [
-    { kind: "whip", t0: 2.38, tc: 2.70, t1: 2.90, dir: -1 },   // ele -> ela
-    { kind: "leaf", t0: 6.62, tc: 7.04, t1: 7.42, dir: 1 },    // ela -> ele
-    { kind: "punch", t0: 9.80, tc: 9.86, t1: 9.96 },           // jump cut (removed words)
-    { kind: "whip", t0: 10.40, tc: 10.52, t1: 10.70, dir: 1 }, // ele -> ela
-    { kind: "whip", t0: 17.14, tc: 17.26, t1: 17.40, dir: -1 },// ela -> os dois
-    { kind: "final", t0: 18.80, tc: R.final_cut, t1: 19.62, dir: -1 },
-  ];
+  // transitions, shots (framing) and chips all come from reel_prep.py,
+  // written in source seconds and mapped through the EDL
+  const TR = R.transitions;
+  const SHOTS = R.shots;
+  // source time -> reel time (a time inside a removed gap maps to the join)
+  function rt(src) {
+    for (const s of SEG) if (src <= s.src1) return s.t0 + Math.max(0, src - s.src0);
+    return SEG[SEG.length - 1].t1;
+  }
 
   function segAt(t) {
     for (const s of SEG) if (t < s.t1) return s;
     return SEG[SEG.length - 1];
   }
-  function framingAt(t) {
-    let i = 0;
-    while (i + 1 < FRAMING.length && FRAMING[i + 1][0] <= t) i++;
-    const [t0, z] = FRAMING[i];
-    const t1 = i + 1 < FRAMING.length ? FRAMING[i + 1][0] : R.final_cut;
-    return z * (1 + 0.03 * clamp((t - t0) / (t1 - t0)));   // slow push inside each shot
+  // shot on screen at reel time t: inside a dissolve gap of the raw file the
+  // transition decides (outgoing shot before its cut, incoming after)
+  function shotAt(t) {
+    const s = segAt(t);
+    const src = s.src0 + (t - s.t0);
+    for (let i = 0; i < SHOTS.length; i++) {
+      const sh = SHOTS[i];
+      if (src >= sh.a && src <= sh.b) return { sh, src };
+      const nx = SHOTS[i + 1];
+      if (nx && src > sh.b && src < nx.a) {
+        const tr = TR.find(x => t >= x.t0 && t < x.t1);
+        const before = tr ? t < tr.tc : (src - sh.b) < (nx.a - src);
+        return { sh: before ? sh : nx, src };
+      }
+    }
+    return { sh: SHOTS[SHOTS.length - 1], src };
   }
-  // source frame for segment s at reel time t (clamped to its clean range)
-  function srcFrame(s, t) {
-    const src = clamp(s.src0 + (t - s.t0), s.clean[0], s.clean[1] - 1 / FPS);
-    return Math.round(src * FPS);
+  // framing: 100% (or the shot base) with a slow drift (~1%/s), and at most a
+  // few eased punch-ins to 110% on real emphasis; never zooms back out in a shot
+  function zoomAt(sh, t) {
+    const base = sh.base || 1.0;
+    let z = base + sh.drift * Math.max(0, t - sh.ra);
+    z = Math.min(z, base + 0.04);
+    if (sh.rpunch != null && t >= sh.rpunch) {
+      const zp = Math.min(base + sh.drift * Math.max(0, sh.rpunch - sh.ra), base + 0.04);
+      z = lerp(zp, 1.10, eOutCubic(prog(t, sh.rpunch, 0.24)));
+    }
+    return Math.min(z, 1.10);
+  }
+  function frameOf(sh, src) {
+    return Math.round(clamp(src, sh.a, sh.b - 1 / FPS) * FPS);
   }
 
   // ------------------------------------------------------------ frames cache
@@ -160,23 +174,25 @@
   // ------------------------------------------------------------ captions
   // [word, start] per phrase (reel time); phrase shows until next phrase.
   // Lines split with "/". Keywords: k = 1 (yellow + pop).
+  // word start times in SOURCE seconds (mapped with rt())
   const CAP = [
-    { t: 0.00, w: [["E", 0.07], ["aí,", 0.17], ["você", 0.33], ["está", 0.49], ["preparado", 0.83], "/", ["para", 1.21], ["sair", 1.37], ["da", 1.49], ["rotina", 1.63]] },
-    { t: 1.87, w: [["e", 1.87], ["treinar", 1.97], ["de", 2.15], ["verdade?", 2.25]] },
-    { t: 2.72, w: [["Então", 2.75], ["prepara", 3.10], ["aí:", 3.50]] },
-    { t: 3.70, w: [["dia", 3.70], ["24", 4.00, 1], ["de", 4.46, 1], ["outubro,", 4.58, 1], "/", ["às", 5.08], ["7h", 5.24], ["da", 5.64], ["manhã,", 5.82]] },
-    { t: 6.10, w: [["temos", 6.18], ["um", 6.54], ["encontro", 6.64], ["marcado.", 6.80]] },
-    { t: 7.06, w: [["É", 7.08], ["o", 7.22], ["Funcional", 7.32, 1], "/", ["da", 7.70], ["Cia", 7.82], ["do", 8.00], ["Corpo,", 8.10]] },
-    { t: 8.40, w: [["que", 8.40], ["vai", 8.54], ["ser", 8.64], ["na", 8.78], ["orla", 8.90], "/", ["de", 9.10], ["Casa", 9.24], ["Caiada,", 9.46]] },
-    { t: 9.88, w: [["na", 9.90], ["praia", 10.10], ["do", 10.26], ["Quartel.", 10.32, 1]] },
-    { t: 10.56, w: [["Então", 10.60], ["chama", 10.96], ["a", 11.14], ["galera,", 11.20]] },
-    { t: 11.68, w: [["prepara", 11.70], ["a", 11.94], ["disposição", 12.02], "/", ["e", 12.74], ["vem", 12.86], ["com", 13.02], ["a", 13.12], ["gente.", 13.20]] },
-    { t: 13.76, w: [["Garanta", 13.78], ["seu", 14.12], ["ingresso", 14.26, 1], "/", ["com", 14.74], ["os", 14.84], ["professores", 15.00], ["da", 15.46], ["Cia", 15.62]] },
-    { t: 16.16, w: [["e", 16.18], ["com", 16.34], ["as", 16.46], ["meninas", 16.56], "/", ["da", 16.82], ["recepção.", 16.90]] },
-    { t: 17.50, w: [["Esperando", 17.56], ["vocês.", 18.16], "/", ["Bora", 18.50, 1], ["treinar!", 18.72, 1]] },
+    { t: 0.15, w: [["E", 0.22], ["aí,", 0.32], ["você", 0.48], ["está", 0.64], ["preparado", 0.98], "/", ["para", 1.36], ["sair", 1.52], ["da", 1.64], ["rotina", 1.78]] },
+    { t: 2.02, w: [["e", 2.02], ["treinar", 2.12], ["de", 2.3], ["verdade?", 2.4]] },
+    { t: 3.02, w: [["Então", 3.05], ["prepara", 3.4], ["aí:", 3.8]] },
+    { t: 4.0, w: [["dia", 4.0], ["24", 4.3, 1], ["de", 4.76, 1], ["outubro,", 4.88, 1], "/", ["às", 5.38], ["7h", 5.54], ["da", 5.94], ["manhã,", 6.12]] },
+    { t: 6.54, w: [["temos", 6.62], ["um", 6.98], ["encontro", 7.08], ["marcado.", 7.24]] },
+    { t: 7.76, w: [["É", 7.78], ["o", 7.92], ["Funcional", 8.02, 1], "/", ["da", 8.4], ["Cia", 8.52], ["do", 8.7], ["Corpo,", 8.8]] },
+    { t: 9.1, w: [["que", 9.1], ["vai", 9.24], ["ser", 9.34], ["na", 9.48], ["orla", 9.6], "/", ["de", 9.8], ["Casa", 9.94], ["Caiada,", 10.16]] },
+    { t: 11.68, w: [["na", 11.7], ["praia", 11.9], ["do", 12.06], ["Quartel.", 12.12, 1]] },
+    { t: 12.66, w: [["Então", 12.7], ["chama", 13.06], ["a", 13.24], ["galera,", 13.3]] },
+    { t: 13.78, w: [["prepara", 13.8], ["a", 14.04], ["disposição", 14.12], "/", ["e", 14.84], ["vem", 14.96], ["com", 15.12], ["a", 15.22], ["gente.", 15.3]] },
+    { t: 15.86, w: [["Garanta", 15.88], ["seu", 16.22], ["ingresso", 16.36, 1], "/", ["com", 16.84], ["os", 16.94], ["professores", 17.1], ["da", 17.56], ["Cia", 17.72]] },
+    { t: 18.26, w: [["e", 18.28], ["com", 18.44], ["as", 18.56], ["meninas", 18.66], "/", ["da", 18.92], ["recepção.", 19.0]] },
+    { t: 19.9, w: [["Esperando", 19.96], ["vocês.", 20.56], "/", ["Bora", 20.9, 1], ["treinar!", 21.12, 1]] },
   ];
   const CAPY = 1352;            // baseline of the last line (2 lines: 1280 / 1352)
   const FONT = "800 60px Montserrat";
+  CAP.forEach(ph => { ph.t = rt(ph.t); ph.w.forEach(w => { if (w !== "/") w[1] = rt(w[1]); }); });
   function captions(g, t) {
     if (t >= R.final_cut - 0.12) return;
     let i = -1;
@@ -202,7 +218,7 @@
       ln.forEach((w, wi) => {
         const [txt, ws, key] = w;
         const spoken = t >= ws;
-        const a = (spoken ? 1 : 0.38) * appear;
+        const a = (spoken ? 1 : 0.5) * appear;
         let s = 1;
         if (key && spoken) {
           const p = prog(t, ws, 0.26);
@@ -220,6 +236,13 @@
         g.shadowColor = "rgba(50,18,0,0.5)";
         g.shadowBlur = 12;
         g.shadowOffsetY = 4;
+        if (hl || !spoken) {
+          // dark rim (~4.5 px outside the orange outline) for contrast on shirt and floor
+          g.strokeStyle = "rgba(40,14,2,0.92)";
+          g.lineWidth = 19;
+          g.strokeText(txt, 0, 0);
+          g.shadowColor = "transparent";
+        }
         g.strokeStyle = hl ? "#B84500" : "#E8650C";
         g.lineWidth = 10;
         g.strokeText(txt, 0, 0);
@@ -235,12 +258,8 @@
 
   // ------------------------------------------------------------ info chips
   // only when the information is spoken; texts exactly as in the final art
-  const CHIPS = [
-    { t: 3.98, d: 1.15, txt: "24 DE OUTUBRO", icon: "cal" },
-    { t: 5.22, d: 0.80, txt: "ÀS 07H", icon: "clock" },
-    { t: 9.22, d: 0.60, txt: "PRAIA DE CASA CAIADA", icon: "pin" },
-    { t: 10.30, d: 0.45, txt: "EM FRENTE AO QUARTEL", icon: "pin" },
-  ];
+  const CHIPS = R.chips;            // {txt, icon, row, in, out} in reel time
+  const CHIP_Y = [1066, 1146];
   function clockIcon(g, x, y, s) {
     g.save(); g.translate(x, y); g.scale(s, s);
     g.lineWidth = 4.2; g.lineCap = "round";
@@ -250,13 +269,12 @@
   }
   function chips(g, t) {
     for (const c of CHIPS) {
-      const p = prog(t, c.t, 0.32), out = prog(t, c.t + c.d, 0.18);
-      if (p <= 0 || out >= 1) continue;
-      const s = backOut(p, 2.0) * (1 - 0.15 * out);
+      if (t < c.in || t >= c.out) continue;
+      const pin = eOutCubic(prog(t, c.in, 0.25));
+      const pout = prog(t, c.out - 0.30, 0.30);
       g.save();
-      g.globalAlpha = clamp(p * 3) * (1 - out);
-      g.translate(540, 1150);
-      g.scale(s, s);
+      g.globalAlpha = pin * (1 - pout);
+      g.translate(540, CHIP_Y[c.row] + 12 * (1 - pin));
       g.font = "800 36px Montserrat";
       const tw = g.measureText(c.txt).width;
       const w = tw + 48 + 46, h = 64;
@@ -322,21 +340,15 @@
       g.fillStyle = vg;
       g.fillRect(0, 0, W, H);
     } else {
-      const s = segAt(t);
-      let A = s, tA = t;
-      // during a transition, before the cut, keep the outgoing segment
-      if (tr && (tr.kind === "whip" || tr.kind === "leaf") && t < tr.tc) { A = SEG[SEG.indexOf(segAt(tr.tc)) - 1]; tA = t; }
-      const img = await loadFrame(srcFrame(A, tA));
-      const z = framingAt(t);
+      const { sh, src } = shotAt(t);
+      const img = await loadFrame(frameOf(sh, src));
+      const z = zoomAt(sh, t);
       let o = {};
       if (tr && tr.kind === "whip") {
         if (t < tr.tc) { const p = eInCubic(prog(t, tr.t0, tr.tc - tr.t0)); o = { dx: tr.dir * 520 * p, hblur: 420 * p }; }
         else { const q = eOutCubic(prog(t, tr.tc, tr.t1 - tr.tc)); o = { dx: -tr.dir * 520 * (1 - q), hblur: 420 * (1 - q) }; }
-      } else if (tr && tr.kind === "punch") {
-        const q = 1 - Math.abs(t - tr.tc) / 0.1;
-        o = { rblur: 0.10 * clamp(q) };
       }
-      drawShot(g, img, A.who, z * (tr && tr.kind === "punch" && t >= tr.tc ? 1 + 0.06 * (1 - eOutCubic(prog(t, tr.tc, 0.1))) : 1), o);
+      drawShot(g, img, sh.who, z, o);
       SF.particles(g, t, 0.35, { x: 0, y: 0 });
       cornerLeaves(g, t, 0.95);
       captions(g, t);
