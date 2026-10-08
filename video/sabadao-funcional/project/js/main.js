@@ -824,6 +824,8 @@
     }
     sunRing(g, R, t, ringA);
 
+    cuidaWord(g, t, lt);
+
     // the woman above the circle: arm, hand and cap break its rim, below the
     // circle centre she stays inside it
     if (wA > 0 && ex < 1) {
@@ -1041,6 +1043,80 @@
     g.clip();
   }
 
+  // "CUIDA!" behind her, above the cap: same face as the slogan (Knewave,
+  // slanted), cream with a thin burnt-orange outline; rack focus + 1.08 -> 1.0
+  // once the leaves have revealed her, rigid boat-like sway, gone with the exit leaves
+  const CUIDA = { cx: 560, cy: 432, w: 864, t0: 6.9, dur: 0.35 };
+  function cuidaWord(g, t, lt) {
+    const p = prog(t, CUIDA.t0, CUIDA.dur);
+    if (p <= 0) return;
+    const e = eOutCubic(p);
+    g.save();
+    g.font = "100px Knewave";
+    const m = g.measureText("CUIDA!");
+    const size = 100 * CUIDA.w / m.width;
+    g.font = `${size.toFixed(1)}px Knewave`;
+    const mm = g.measureText("CUIDA!");
+    const rot = 0.8 * Math.sin(lt * 2 * Math.PI / 2.4 + 0.4);
+    const dy = 6 * Math.sin(lt * 2 * Math.PI / 2.4 + 2.0);
+    g.translate(CUIDA.cx, CUIDA.cy + dy);
+    g.rotate(rot * DEG);
+    g.scale(1.08 - 0.08 * e, 1.08 - 0.08 * e);
+    g.transform(1, 0, Math.tan(-8 * DEG), 1, 0, 0);
+    g.globalAlpha = clamp(p * 2.5);
+    if (p < 1) g.filter = `blur(${(16 * (1 - e)).toFixed(1)}px)`;
+    g.textAlign = "center";
+    g.textBaseline = "alphabetic";
+    const by = (mm.actualBoundingBoxAscent - mm.actualBoundingBoxDescent) / 2;
+    g.lineJoin = "round";
+    g.shadowColor = "rgba(70,15,0,0.55)";
+    g.shadowBlur = 22;
+    g.shadowOffsetY = 8;
+    g.strokeStyle = "#7a2205";
+    g.lineWidth = 10;
+    g.strokeText("CUIDA!", 0, by);
+    g.shadowColor = "transparent";
+    g.fillStyle = "#fff6e4";
+    g.fillText("CUIDA!", 0, by);
+    g.restore();
+  }
+
+  // leaf cover wave: two depth layers of the same fronds as the sweeps, entering
+  // from one side, covering the frame at tc, then sweeping out to the other side.
+  // dir +1 travels left -> right, -1 right -> left. A leaf-coloured mass rides
+  // under the fronds around tc so the cover is total on the cut frames.
+  function leafWave(g, t, tIn, tc, tOut, dir) {
+    if (t <= tIn || t >= tOut) return;
+    // travel of the wave front, in px along dir (0 = frame centre)
+    const k = t < tc ? eOutCubic(prog(t, tIn, tc - tIn)) : 0;
+    const xFront = t < tc ? lerp(-2300, 0, k) : lerp(0, 2400, Math.pow(prog(t, tc, tOut - tc), 1.35));
+    const X = x => 540 + dir * x;                     // map along-travel coords to screen
+    const sw = a => Math.sin(t * 7.5 + a);
+    // leaf mass under the fronds (total cover at the cut)
+    const mass = clamp((0.11 - Math.abs(t - (tc - 1 / 60))) / 0.06);
+    if (mass > 0) {
+      g.save();
+      g.globalAlpha = mass;
+      const gr = g.createLinearGradient(0, 0, W, H);
+      gr.addColorStop(0, "#b8360a"); gr.addColorStop(0.5, "#d9480c"); gr.addColorStop(1, "#a62c08");
+      g.fillStyle = gr;
+      g.fillRect(0, 0, W, H);
+      g.restore();
+    }
+    // back layer: bigger, softer, slower (parallax)
+    const back = [[-260, 80, 18], [-120, 560, -14], [-300, 1010, 22], [-160, 1480, -18], [-260, 1930, 16]];
+    back.forEach(([dx, y, r], i) => {
+      const x = X(xFront * 0.82 + dx - 1250);
+      frond(g, FR.deepC, x, y + 18 * sw(i), (dir > 0 ? r : 180 - r) + 4 * sw(i * 1.7), 1.75, { blur: 14 });
+    });
+    // front layer: sharper, faster, organic sway
+    const front = [[0, -120, 24], [-140, 330, -18], [60, 780, 20], [-120, 1230, -22], [40, 1680, 18], [-60, 2120, -20]];
+    front.forEach(([dx, y, r], i) => {
+      const x = X(xFront + dx - 1350);
+      frond(g, FR.warmC, x, y + 24 * sw(i + 3), (dir > 0 ? r : 180 - r) + 5 * sw(i * 1.3 + 1), 2.0, { blur: 4 });
+    });
+  }
+
   // ------------------------------------------------------------ frame
   function renderFrame(t) {
     t = clamp(t, 0, DUR);
@@ -1050,14 +1126,30 @@
     // transitions (sweep window)
     const s1 = T.impact - 0.24, s1d = 0.62;   // leaves cross the logo, wipe to woman
     const s2 = T.final - 0.30, s2d = 0.66;    // leaves sweep to the final composition
+    // v3 woman window: leaves cover the frame, hard cut on the beat, leaves sweep out
+    const in0 = 6.39, inC = T.impact, in1 = 7.01;            // entry (cut at 6.545)
+    const out0 = 8.21, outC = T.final, out1 = 8.69;          // exit (cut at 8.464)
+    const cover = window.COVERTEST;
     if (t < s1) {
       sceneLogo(g, t);
-    } else if (t < s1 + s1d) {
+    } else if (t < in0) {
       sceneLogo(g, Math.min(t, T.impact + 0.05));
       g.save(); wipeClip(g, t, s1, s1d, 1); sceneWoman(g, Math.max(t, T.impact)); g.restore();
       leafSweep(g, t, s1 - 0.12, s1d + 0.2, 1);
-    } else if (t < s2) {
+    } else if (t < in1) {
+      if (cover) { g.fillStyle = "#ff00ff"; g.fillRect(0, 0, W, H); }
+      else if (t < inC) sceneLogo(g, t);
+      else sceneWoman(g, t);
+      leafSweep(g, t, s1 - 0.12, s1d + 0.2, 1);
+      leafWave(g, t, in0, inC - 1 / 60, in1, 1);
+    } else if (t < out0) {
       sceneWoman(g, t);
+    } else if (t < out1) {
+      if (cover) { g.fillStyle = "#ff00ff"; g.fillRect(0, 0, W, H); }
+      else if (t < outC) sceneWoman(g, t);
+      else sceneFinal(g, t);
+      leafSweep(g, t, s2 - 0.12, s2d + 0.2, -1);
+      leafWave(g, t, out0, outC - 1 / 60, out1 - 0.03, -1);
     } else if (t < s2 + s2d) {
       sceneWoman(g, t);
       g.save(); wipeClip(g, t, s2, s2d, -1); sceneFinal(g, Math.max(t, T.final)); g.restore();
@@ -1121,6 +1213,7 @@
   window.VIDEO = { width: W, height: H, fps: FPS, duration: DUR, frames: Math.round(DUR * FPS) };
   window.__ready = init().then(() => {
     const q = new URLSearchParams(location.search);
+    window.COVERTEST = q.has("covertest");
     if (q.has("play")) {
       document.body.classList.add("preview");
       const au = new Audio("assets/src/musica.m4a");

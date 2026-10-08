@@ -6,7 +6,7 @@
 //
 // Usage:
 //   node tools/render.mjs --page project/index.html --workers 4 [--out output/frames]
-//        [--frames 135,225,390] [--from 0 --to 449]
+//        [--frames 135,225,390] [--from 0 --to 449] [--query covertest]
 // Frames are written as <out>/%05d.png (frame index, t = i / fps).
 import { createServer } from "node:http";
 import { readFile, mkdir, writeFile } from "node:fs/promises";
@@ -49,7 +49,7 @@ function serve(dir) {
 
 const { chromium } = await loadPlaywright();
 const srv = await serve(path.dirname(page));
-const url = `http://127.0.0.1:${srv.address().port}/${path.basename(page)}?render`;
+const url = `http://127.0.0.1:${srv.address().port}/${path.basename(page)}?render${args.query ? "&" + args.query : ""}`;
 await mkdir(outDir, { recursive: true });
 
 const browser = await chromium.launch({
