@@ -213,18 +213,32 @@
         g.globalAlpha = a;
         g.translate(cx, y);
         g.scale(s, s);
-        // soft orange glow (model) + dark outline (contrast on the orange shirts)
-        g.shadowColor = "rgba(230,100,30,0.55)";
-        g.shadowBlur = 16;
-        g.strokeStyle = key && spoken ? "#3d1604" : "#4a1e05";
-        g.lineWidth = 9;
         g.textAlign = "center";
-        g.strokeText(txt, 0, 0);
-        g.shadowColor = "rgba(40,12,0,0.45)";
-        g.shadowBlur = 10;
-        g.shadowOffsetY = 4;
-        g.fillStyle = key && spoken ? "#FFC83D" : "#FDF9F3";
-        g.fillText(txt, 0, 0);
+        if (key && spoken) {
+          // keyword: white letter, orange outline (brand burnt orange, 4.6:1
+          // against the white), soft dark halo outside so it holds on the shirts
+          g.shadowColor = "rgba(45,15,0,0.6)";
+          g.shadowBlur = 14;
+          g.shadowOffsetY = 3;
+          g.strokeStyle = "#C84E00";
+          g.lineWidth = 12;
+          g.strokeText(txt, 0, 0);
+          g.shadowColor = "transparent";
+          g.fillStyle = "#FFFFFF";
+          g.fillText(txt, 0, 0);
+        } else {
+          // soft orange glow (model) + dark outline (contrast on the orange shirts)
+          g.shadowColor = "rgba(230,100,30,0.55)";
+          g.shadowBlur = 16;
+          g.strokeStyle = "#4a1e05";
+          g.lineWidth = 9;
+          g.strokeText(txt, 0, 0);
+          g.shadowColor = "rgba(40,12,0,0.45)";
+          g.shadowBlur = 10;
+          g.shadowOffsetY = 4;
+          g.fillStyle = "#FDF9F3";
+          g.fillText(txt, 0, 0);
+        }
         g.restore();
         x += widths[wi] + space;
       });
