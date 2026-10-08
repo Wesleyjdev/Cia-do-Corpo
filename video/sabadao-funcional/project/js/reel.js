@@ -214,31 +214,18 @@
         g.translate(cx, y);
         g.scale(s, s);
         g.textAlign = "center";
-        if (key && spoken) {
-          // keyword: white letter, orange outline (brand burnt orange, 4.6:1
-          // against the white), soft dark halo outside so it holds on the shirts
-          g.shadowColor = "rgba(45,15,0,0.6)";
-          g.shadowBlur = 14;
-          g.shadowOffsetY = 3;
-          g.strokeStyle = "#C84E00";
-          g.lineWidth = 12;
-          g.strokeText(txt, 0, 0);
-          g.shadowColor = "transparent";
-          g.fillStyle = "#FFFFFF";
-          g.fillText(txt, 0, 0);
-        } else {
-          // soft orange glow (model) + dark outline (contrast on the orange shirts)
-          g.shadowColor = "rgba(230,100,30,0.55)";
-          g.shadowBlur = 16;
-          g.strokeStyle = "#4a1e05";
-          g.lineWidth = 9;
-          g.strokeText(txt, 0, 0);
-          g.shadowColor = "rgba(40,12,0,0.45)";
-          g.shadowBlur = 10;
-          g.shadowOffsetY = 4;
-          g.fillStyle = "#FDF9F3";
-          g.fillText(txt, 0, 0);
-        }
+        // reference style: white letter, orange outline, soft shadow;
+        // keywords entirely orange (fill + darker orange outline)
+        const hl = key && spoken;
+        g.shadowColor = "rgba(50,18,0,0.5)";
+        g.shadowBlur = 12;
+        g.shadowOffsetY = 4;
+        g.strokeStyle = hl ? "#B84500" : "#E8650C";
+        g.lineWidth = 10;
+        g.strokeText(txt, 0, 0);
+        g.shadowColor = "transparent";
+        g.fillStyle = hl ? "#FF7A14" : "#FFFFFF";
+        g.fillText(txt, 0, 0);
         g.restore();
         x += widths[wi] + space;
       });
